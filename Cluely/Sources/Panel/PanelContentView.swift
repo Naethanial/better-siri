@@ -7,26 +7,60 @@ struct PanelContentView: View {
     let cornerRadius: CGFloat
     let onSizeChange: (CGSize) -> Void
     let onClose: () -> Void
-    
+
     // Width phases
     private let initialWidth: CGFloat = 380
     private let expandedWidth: CGFloat = 520
-    
+
     // Track measured content size
-    @State private var contentSize: CGSize = .zero
+    @State private var messagesHeight: CGFloat = 0
     @State private var inputHeight: CGFloat = 44
-    
+    @Environment(\.controlActiveState) private var controlActiveState
+
+    private let inputBottomPadding: CGFloat = 12
+    private let inputTopPaddingWithMessages: CGFloat = 8
+
     private var targetWidth: CGFloat {
         viewModel.hasSentFirstMessage ? min(expandedWidth, maxWidth) : initialWidth
     }
-    
+
+    private var hasMessages: Bool {
+        !viewModel.messages.isEmpty
+    }
+
+    private var isActive: Bool {
+        controlActiveState == .key
+    }
+
+    private var inputTopPadding: CGFloat {
+        hasMessages ? inputTopPaddingWithMessages : 0
+    }
+
+    private var inputBlockHeight: CGFloat {
+        inputHeight + inputTopPadding + inputBottomPadding
+    }
+
+    private var availableMessageHeight: CGFloat {
+        max(0, maxHeight - inputBlockHeight)
+    }
+
+    private var messageBlockHeight: CGFloat {
+        guard hasMessages else { return 0 }
+        return min(messagesHeight, availableMessageHeight)
+    }
+
+    private var desiredHeight: CGFloat {
+        messageBlockHeight + inputBlockHeight
+    }
+
+    private var desiredSize: CGSize {
+        CGSize(width: targetWidth, height: min(desiredHeight, maxHeight))
+    }
+
     var body: some View {
         VStack(spacing: 0) {
-            // Drag handle area
-            DragHandleView()
-            
             // Messages (only show if there are messages)
-            if !viewModel.messages.isEmpty {
+            if hasMessages {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(spacing: 12) {
@@ -37,7 +71,13 @@ struct PanelContentView: View {
                         }
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
+                        .readSize { size in
+                            if size.height != messagesHeight {
+                                messagesHeight = size.height
+                            }
+                        }
                     }
+                    .frame(height: messageBlockHeight)
                     .onChange(of: viewModel.messages.last?.content) { _, _ in
                         // Auto-scroll to bottom when content changes
                         if let lastMessage = viewModel.messages.last {
@@ -48,7 +88,7 @@ struct PanelContentView: View {
                     }
                 }
             }
-            
+
             // Input area
             ChatInputView(
                 text: $viewModel.inputText,
@@ -61,26 +101,38 @@ struct PanelContentView: View {
                 }
             )
             .padding(.horizontal, 12)
-            .padding(.bottom, 12)
-            .padding(.top, viewModel.messages.isEmpty ? 0 : 8)
+            .padding(.bottom, inputBottomPadding)
+            .padding(.top, inputTopPadding)
         }
         .frame(width: targetWidth)
         .frame(maxHeight: maxHeight)
-        .background(
-            GlassPanelBackground(cornerRadius: cornerRadius)
-        )
+        .background {
+            if hasMessages {
+                GlassPanelBackground(cornerRadius: cornerRadius, isActive: isActive)
+            }
+        }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .strokeBorder(.white.opacity(0.2), lineWidth: 0.5)
+        .overlay {
+            if hasMessages {
+                PanelBorder(cornerRadius: cornerRadius, isActive: isActive)
+            }
+        }
+        .compositingGroup()
+        .shadow(
+            color: hasMessages ? .black.opacity(isActive ? 0.28 : 0.18) : .clear,
+            radius: hasMessages ? (isActive ? 20 : 16) : 0,
+            x: 0,
+            y: hasMessages ? 10 : 0
         )
-        .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
-        .onGeometryChange(for: CGSize.self) { proxy in
-            proxy.size
-        } action: { newSize in
-            if newSize != contentSize {
-                contentSize = newSize
-                onSizeChange(newSize)
+        .onAppear {
+            onSizeChange(desiredSize)
+        }
+        .onChange(of: desiredSize) { _, newSize in
+            onSizeChange(newSize)
+        }
+        .onChange(of: viewModel.messages.isEmpty) { _, isEmpty in
+            if isEmpty {
+                messagesHeight = 0
             }
         }
         .onKeyPress(.escape) {
@@ -90,31 +142,54 @@ struct PanelContentView: View {
     }
 }
 
-struct DragHandleView: View {
-    var body: some View {
-        Rectangle()
-            .fill(.clear)
-            .frame(height: 20)
-            .overlay(
-                Capsule()
-                    .fill(.white.opacity(0.3))
-                    .frame(width: 36, height: 5)
-            )
-    }
-}
-
 struct GlassPanelBackground: View {
     let cornerRadius: CGFloat
-    
+    let isActive: Bool
+
     var body: some View {
+        let highlightOpacity = isActive ? 0.22 : 0.12
+        let highlight = LinearGradient(
+            colors: [
+                .white.opacity(highlightOpacity),
+                .white.opacity(0.04),
+                .clear
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+
         // Try Liquid Glass first, fall back to material
         if #available(macOS 26.0, *) {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(.clear)
-                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+                .glassEffect(isActive ? .regular : .thin, in: .rect(cornerRadius: cornerRadius))
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(highlight)
+                        .blendMode(.screen)
+                )
         } else {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(highlight)
+                        .blendMode(.screen)
+                )
+        }
+    }
+}
+
+struct PanelBorder: View {
+    let cornerRadius: CGFloat
+    let isActive: Bool
+
+    var body: some View {
+        if #available(macOS 26.0, *) {
+            EmptyView()
+        } else {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .strokeBorder(.white.opacity(isActive ? 0.2 : 0.12), lineWidth: 0.5)
         }
     }
 }
