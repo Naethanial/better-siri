@@ -158,10 +158,12 @@ struct GlassPanelBackground: View {
         let dimOpacity = isActive ? 0.02 : 0.1
 
         // Try Liquid Glass first, fall back to material
+        // Pin to .active so the glass stays vibrant even when unfocused
         if #available(macOS 26.0, *) {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(.clear)
                 .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+                .environment(\.controlActiveState, .active)
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(.black.opacity(dimOpacity))
@@ -169,6 +171,7 @@ struct GlassPanelBackground: View {
         } else {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(.ultraThinMaterial)
+                .environment(\.controlActiveState, .active)
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .fill(.black.opacity(dimOpacity))

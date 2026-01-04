@@ -96,14 +96,16 @@ struct GrowingTextEditor: NSViewRepresentable {
         textView.isRichText = false
         textView.allowsUndo = true
         textView.font = .systemFont(ofSize: 14)
-        textView.textColor = .white
-        textView.insertionPointColor = .white
         textView.backgroundColor = .clear
         textView.drawsBackground = false
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
         textView.autoresizingMask = [.width]
         textView.textContainerInset = .zero
+
+        // Use labelColor which automatically adapts to appearance
+        textView.textColor = .labelColor
+        textView.insertionPointColor = .labelColor
 
         // Configure text container for wrapping
         textView.textContainer?.widthTracksTextView = true
@@ -125,6 +127,9 @@ struct GrowingTextEditor: NSViewRepresentable {
 
     func updateNSView(_ scrollView: NSScrollView, context: Context) {
         guard let textView = scrollView.documentView as? NSTextView else { return }
+
+        // labelColor automatically adapts to the window's effective appearance
+        // No need to manually set colors here - they follow the window appearance
 
         if textView.string != text {
             textView.string = text

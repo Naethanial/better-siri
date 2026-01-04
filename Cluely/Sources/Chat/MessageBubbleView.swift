@@ -37,6 +37,7 @@ struct BubbleBackground: View {
     var body: some View {
         if #available(macOS 26.0, *) {
             // Liquid Glass bubbles
+            // Pin assistant bubble to .active so it stays vibrant when unfocused
             if isUser {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(.clear)
@@ -51,15 +52,18 @@ struct BubbleBackground: View {
                         .regular.tint(.gray.opacity(0.2)),
                         in: .rect(cornerRadius: cornerRadius)
                     )
+                    .environment(\.controlActiveState, .active)
             }
         } else {
             // Fallback for older macOS
+            // Pin assistant bubble to .active so it stays vibrant when unfocused
             if isUser {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(.blue.opacity(0.8))
             } else {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(.ultraThinMaterial)
+                    .environment(\.controlActiveState, .active)
                     .overlay(
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .strokeBorder(.white.opacity(0.15), lineWidth: 0.5)

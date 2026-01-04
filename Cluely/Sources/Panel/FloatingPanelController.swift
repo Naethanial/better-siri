@@ -1,6 +1,40 @@
 import AppKit
 import SwiftUI
 
+/// Root wrapper that applies user's appearance preference to the panel.
+struct PanelRootView<Content: View>: View {
+    @AppStorage("appearance_mode") private var appearanceModeRaw: String = AppearanceMode.system.rawValue
+
+    let content: () -> Content
+
+    init(@ViewBuilder content: @escaping () -> Content) {
+        self.content = content
+    }
+
+    private var appearanceMode: AppearanceMode {
+        AppearanceMode(rawValue: appearanceModeRaw) ?? .system
+    }
+
+    var body: some View {
+        content()
+            .preferredColorScheme(appearanceMode.colorScheme)
+    }
+}
+
+/// Helper to get the current NSAppearance based on the stored preference
+func appearanceFromUserDefault() -> NSAppearance? {
+    let raw = UserDefaults.standard.string(forKey: "appearance_mode") ?? AppearanceMode.system.rawValue
+    let mode = AppearanceMode(rawValue: raw) ?? .system
+    switch mode {
+    case .system:
+        return nil // follow system
+    case .light:
+        return NSAppearance(named: .aqua)
+    case .dark:
+        return NSAppearance(named: .darkAqua)
+    }
+}
+
 @MainActor
 class FloatingPanelController {
     private var panel: NSPanel?
@@ -50,6 +84,10 @@ class FloatingPanelController {
         panel.titleVisibility = .hidden
         panel.titlebarAppearsTransparent = true
 
+        // Apply user's appearance preference to the window itself
+        // This ensures AppKit views (like NSTextView) get the correct appearance from the start
+        panel.appearance = appearanceFromUserDefault()
+
         // Create the content view
         let panelContentView = PanelContentView(
             viewModel: viewModel,
@@ -64,7 +102,12 @@ class FloatingPanelController {
             }
         )
 
-        let hostingView = NSHostingView(rootView: AnyView(panelContentView))
+        // Wrap with appearance handling
+        let rootView = PanelRootView {
+            panelContentView
+        }
+
+        let hostingView = NSHostingView(rootView: AnyView(rootView))
         hostingView.frame = panel.contentView?.bounds ?? .zero
         hostingView.autoresizingMask = [.width, .height]
 
