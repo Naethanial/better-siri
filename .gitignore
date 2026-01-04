@@ -1,0 +1,25 @@
+# Build artifacts
+.build/
+Cluely.app/
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/
+DerivedData/
+
+# Swift Package Manager
+.swiftpm/
+Package.resolved
+
+# macOS
+.DS_Store
+*.dSYM
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# Secrets (just in case)
+*.env
+.env.*
