@@ -10,12 +10,16 @@ struct SizePreferenceKey: PreferenceKey {
 
 extension View {
     func readSize(onChange: @escaping (CGSize) -> Void) -> some View {
-        background(
+        overlay(
             GeometryReader { geometry in
                 Color.clear
-                    .preference(key: SizePreferenceKey.self, value: geometry.size)
+                    .onAppear {
+                        onChange(geometry.size)
+                    }
+                    .onChange(of: geometry.size) { _, newSize in
+                        onChange(newSize)
+                    }
             }
         )
-        .onPreferenceChange(SizePreferenceKey.self, perform: onChange)
     }
 }

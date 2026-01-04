@@ -46,7 +46,9 @@ struct PanelContentView: View {
 
     private var messageBlockHeight: CGFloat {
         guard hasMessages else { return 0 }
-        return min(messagesHeight, availableMessageHeight)
+        // Ensure we always have some height when messages exist, even if measurement hasn't happened yet
+        let measured = max(messagesHeight, 60)
+        return min(measured, availableMessageHeight)
     }
 
     private var desiredHeight: CGFloat {
@@ -63,7 +65,7 @@ struct PanelContentView: View {
             if hasMessages {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 12) {
+                        VStack(spacing: 12) {
                             ForEach(viewModel.messages) { message in
                                 MessageBubbleView(message: message)
                                     .id(message.id)
@@ -72,14 +74,20 @@ struct PanelContentView: View {
                         .padding(.horizontal, 12)
                         .padding(.vertical, 8)
                         .readSize { size in
-                            if size.height != messagesHeight {
-                                messagesHeight = size.height
-                            }
+                            messagesHeight = size.height
                         }
                     }
                     .frame(height: messageBlockHeight)
+                    .onChange(of: viewModel.messages.count) { _, _ in
+                        // Auto-scroll to bottom when new messages added
+                        if let lastMessage = viewModel.messages.last {
+                            withAnimation(.easeOut(duration: 0.1)) {
+                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                            }
+                        }
+                    }
                     .onChange(of: viewModel.messages.last?.content) { _, _ in
-                        // Auto-scroll to bottom when content changes
+                        // Auto-scroll to bottom when content changes (streaming)
                         if let lastMessage = viewModel.messages.last {
                             withAnimation(.easeOut(duration: 0.1)) {
                                 proxy.scrollTo(lastMessage.id, anchor: .bottom)
@@ -147,34 +155,23 @@ struct GlassPanelBackground: View {
     let isActive: Bool
 
     var body: some View {
-        let highlightOpacity = isActive ? 0.22 : 0.12
-        let highlight = LinearGradient(
-            colors: [
-                .white.opacity(highlightOpacity),
-                .white.opacity(0.04),
-                .clear
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
+        let dimOpacity = isActive ? 0.02 : 0.1
 
         // Try Liquid Glass first, fall back to material
         if #available(macOS 26.0, *) {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(.clear)
-                .glassEffect(isActive ? .regular : .thin, in: .rect(cornerRadius: cornerRadius))
+                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(highlight)
-                        .blendMode(.screen)
+                        .fill(.black.opacity(dimOpacity))
                 )
         } else {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(.ultraThinMaterial)
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(highlight)
-                        .blendMode(.screen)
+                        .fill(.black.opacity(dimOpacity))
                 )
         }
     }

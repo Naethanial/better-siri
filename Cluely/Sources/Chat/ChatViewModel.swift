@@ -39,12 +39,14 @@ class ChatViewModel: ObservableObject {
         guard !apiKey.isEmpty else {
             // Add error message if no API key
             messages.append(ChatMessage(role: .assistant, content: "Please set your OpenRouter API key in Settings."))
+            AppLog.shared.log("Send blocked: missing API key", level: .error)
             return false
         }
 
         // Add user message
         let userMessage = ChatMessage(role: .user, content: trimmedInput)
         messages.append(userMessage)
+        AppLog.shared.log("User message queued (chars: \(trimmedInput.count))")
 
         // Clear input
         inputText = ""
@@ -59,6 +61,7 @@ class ChatViewModel: ObservableObject {
 
         // Start streaming
         isStreaming = true
+        AppLog.shared.log("Streaming started")
 
         streamTask = Task {
             do {
@@ -75,11 +78,13 @@ class ChatViewModel: ObservableObject {
                 }
 
                 isStreaming = false
+                AppLog.shared.log("Streaming completed")
 
             } catch {
                 // Update the assistant message with error
                 messages[assistantIndex].content = "Error: \(error.localizedDescription)"
                 isStreaming = false
+                AppLog.shared.log("Streaming failed: \(error)", level: .error)
             }
         }
 
@@ -90,5 +95,6 @@ class ChatViewModel: ObservableObject {
         streamTask?.cancel()
         streamTask = nil
         isStreaming = false
+        AppLog.shared.log("Streaming cancelled")
     }
 }

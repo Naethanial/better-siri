@@ -51,39 +51,19 @@ struct GlassInputBackground: View {
     let isActive: Bool
 
     var body: some View {
-        let highlightOpacity = isActive ? 0.16 : 0.08
         let borderOpacity = isActive ? 0.2 : 0.12
-        let highlight = LinearGradient(
-            colors: [
-                .white.opacity(highlightOpacity),
-                .white.opacity(0.04),
-                .clear
-            ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
-        )
 
         if #available(macOS 26.0, *) {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(.clear)
-                .glassEffect(isActive ? .regular : .thin, in: .rect(cornerRadius: cornerRadius))
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(highlight)
-                        .blendMode(.screen)
-                )
+                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .strokeBorder(.white.opacity(borderOpacity), lineWidth: 0.6)
                 )
         } else {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(.white.opacity(isActive ? 0.1 : 0.06))
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(highlight)
-                        .blendMode(.screen)
-                )
+                .fill(.white.opacity(isActive ? 0.08 : 0.05))
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .strokeBorder(.white.opacity(borderOpacity), lineWidth: 0.5)
