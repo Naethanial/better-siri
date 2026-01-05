@@ -2,36 +2,36 @@
 
 ## Project Structure & Module Organization
 
-- `Cluely/` is the Swift Package Manager project (see `Cluely/Package.swift`).
-- `Cluely/Sources/` contains the app modules:
+- `BetterSiri/` is the Swift Package Manager project (see `BetterSiri/Package.swift`).
+- `BetterSiri/Sources/` contains the app modules:
   - `App/` and `Coordinator/` for app lifecycle and state.
   - `Chat/`, `Panel/`, and `Settings/` for SwiftUI views.
   - `Services/` for screen capture and OpenRouter networking.
   - `Utilities/` for shared helpers; `Resources/Info.plist` for bundle metadata.
-- `Cluely.app/` is a built artifact created by `build.sh` (do not edit by hand).
+- `BetterSiri.app/` is a built artifact created by `build.sh` (do not edit by hand).
 
 ## Build, Test, and Development Commands
 
 ```bash
 ./build.sh
 ```
-Builds a release binary and assembles `Cluely.app` in the repo root.
+Builds a release binary and assembles `BetterSiri.app` in the repo root.
 
 ```bash
-cd Cluely
+cd BetterSiri
 swift build
 swift run
 ```
 Builds and runs the app from SwiftPM for local development.
 
 ```bash
-cd Cluely
+cd BetterSiri
 swift build -c release
 ```
 Builds a release binary without packaging the app bundle.
 
 ```bash
-open Cluely.app
+open BetterSiri.app
 ```
 Launches the built app.
 
@@ -39,12 +39,12 @@ Launches the built app.
 
 - Use standard Swift formatting (4-space indentation) and follow existing SwiftUI patterns.
 - Name SwiftUI views with a `View` suffix (e.g., `ChatInputView`) and services with `Service` (e.g., `ScreenCaptureService`).
-- Keep files in the matching feature folder under `Cluely/Sources/` and align type names with filenames.
+- Keep files in the matching feature folder under `BetterSiri/Sources/` and align type names with filenames.
 
 ## Testing Guidelines
 
 - There is no `Tests/` directory yet and no automated test target configured.
-- If you add tests, follow SwiftPM defaults: `Tests/CluelyTests` with `swift test` as the entry point.
+- If you add tests, follow SwiftPM defaults: `Tests/BetterSiriTests` with `swift test` as the entry point.
 - Name test types `*Tests` and keep test files colocated with their target.
 
 ## Commit & Pull Request Guidelines

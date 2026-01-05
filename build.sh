@@ -1,27 +1,27 @@
 #!/bin/bash
 
-# Build script for Cluely
+# Build script for Better Siri
 
 set -e
 
-echo "Building Cluely..."
+echo "Building Better Siri..."
 
-cd "$(dirname "$0")/Cluely"
+cd "$(dirname "$0")/BetterSiri"
 
 # Build release version
 swift build -c release
 
 # Create app bundle structure
-mkdir -p ../Cluely.app/Contents/MacOS
-mkdir -p ../Cluely.app/Contents/Resources
+mkdir -p ../BetterSiri.app/Contents/MacOS
+mkdir -p ../BetterSiri.app/Contents/Resources
 
 # Copy binary
-cp .build/release/Cluely ../Cluely.app/Contents/MacOS/Cluely
-chmod +x ../Cluely.app/Contents/MacOS/Cluely
+cp .build/release/BetterSiri ../BetterSiri.app/Contents/MacOS/BetterSiri
+chmod +x ../BetterSiri.app/Contents/MacOS/BetterSiri
 
 echo "Build complete!"
 echo ""
-echo "App bundle is at: $(dirname "$0")/Cluely.app"
+echo "App bundle is at: $(dirname "$0")/BetterSiri.app"
 echo ""
-echo "To run: open $(dirname "$0")/Cluely.app"
-echo "Or double-click Cluely.app in Finder"
+echo "To run: open $(dirname "$0")/BetterSiri.app"
+echo "Or double-click BetterSiri.app in Finder"

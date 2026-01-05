@@ -1,4 +1,4 @@
-# Cluely
+# Better Siri
 
 A macOS AI assistant that captures your screen and answers questions about what you see.
 
@@ -22,18 +22,17 @@ A macOS AI assistant that captures your screen and answers questions about what 
 ### Build from Source
 
 ```bash
-cd /Users/superudmarts/Desktop/cluely
 ./build.sh
 ```
 
-This creates `Cluely.app` in the project directory.
+This creates `BetterSiri.app` in the project directory.
 
 ### Run
 
-Double-click `Cluely.app` in Finder, or:
+Double-click `BetterSiri.app` in Finder, or:
 
 ```bash
-open Cluely.app
+open BetterSiri.app
 ```
 
 ## Setup
@@ -58,7 +57,7 @@ open Cluely.app
 ### How It Works
 
 1. Press the hotkey anywhere on your Mac
-2. Cluely captures your current screen
+2. Better Siri captures your current screen
 3. A floating panel appears at your cursor
 4. Type your question and press Enter
 5. The AI analyzes your screen and responds
@@ -72,10 +71,10 @@ The panel:
 ## Project Structure
 
 ```
-cluely/
-├── Cluely.app/              # Built application bundle
+.
+├── BetterSiri.app/          # Built application bundle
 ├── build.sh                 # Build script
-└── Cluely/                  # Source code
+└── BetterSiri/              # Source code
     ├── Package.swift
     └── Sources/
         ├── App/             # Main app, menubar
@@ -102,20 +101,20 @@ Any vision-capable model on OpenRouter works. Some examples:
 
 If the capture fails:
 1. Go to **System Settings → Privacy & Security → Screen Recording**
-2. Find **Cluely** and toggle it ON
-3. Restart Cluely
+2. Find **Better Siri** and toggle it ON
+3. Restart Better Siri
 
 ### App Won't Quit
 
 Click the menubar icon → Quit, or:
 ```bash
-pkill Cluely
+pkill BetterSiri
 ```
 
 ### Hotkey Not Working
 
 1. Check System Settings → Privacy & Security → Accessibility
-2. Ensure Cluely has permission (may not be needed)
+2. Ensure Better Siri has permission (may not be needed)
 3. Try setting a different hotkey in Settings
 
 ## Development
@@ -123,7 +122,7 @@ pkill Cluely
 ### Build Debug Version
 
 ```bash
-cd Cluely
+cd BetterSiri
 swift build
 swift run
 ```
@@ -131,7 +130,7 @@ swift run
 ### Build Release Version
 
 ```bash
-cd Cluely
+cd BetterSiri
 swift build -c release
 ```
 
