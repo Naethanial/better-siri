@@ -179,14 +179,14 @@ struct BubbleBackground: View {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(.clear)
                     .glassEffect(
-                        .regular.tint(.blue.opacity(0.35)),
+                        .regular.tint(.blue.opacity(0.35)).interactive(),
                         in: .rect(cornerRadius: cornerRadius)
                     )
             } else {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .fill(.clear)
                     .glassEffect(
-                        .regular.tint(.gray.opacity(0.2)),
+                        .regular.tint(.gray.opacity(0.2)).interactive(),
                         in: .rect(cornerRadius: cornerRadius)
                     )
                     .environment(\.controlActiveState, .active)

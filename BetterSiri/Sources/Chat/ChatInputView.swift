@@ -58,7 +58,7 @@ struct GlassInputBackground: View {
         if #available(macOS 26.0, *) {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(.clear)
-                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+                .glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                         .strokeBorder(.white.opacity(borderOpacity), lineWidth: 0.6)

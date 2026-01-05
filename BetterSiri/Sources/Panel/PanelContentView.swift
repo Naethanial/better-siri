@@ -156,7 +156,7 @@ struct GlassPanelBackground: View {
         if #available(macOS 26.0, *) {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .fill(.clear)
-                .glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+                .glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
                 .environment(\.controlActiveState, .active)
                 .overlay(
                     RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
