@@ -27,7 +27,7 @@ class ChatViewModel: ObservableObject {
     private var streamTask: Task<Void, Never>?
 
     @AppStorage("openrouter_apiKey") private var apiKey: String = ""
-    @AppStorage("openrouter_model") private var model: String = "anthropic/claude-sonnet-4"
+    @AppStorage("openrouter_model") private var model: String = "google/gemini-3-flash-preview"
     @AppStorage("perplexity_apiKey") private var perplexityApiKey: String = ""
 
     init(screenshot: CGImage) {
@@ -98,11 +98,12 @@ class ChatViewModel: ObservableObject {
                     "Format your responses using Markdown. "
                     + "For mathematical formulas or equations, use LaTeX syntax with $ or $$ delimiters. "
                     + "Be concise and professional."
-                
+
                 if let webContext = webContext {
-                    systemPrompt += "\n\nYou have access to the following recent web search results that may help answer the user's question. Use this information if relevant, and cite sources when appropriate:\n\n\(webContext)"
+                    systemPrompt +=
+                        "\n\nYou have access to the following recent web search results that may help answer the user's question. Use this information if relevant, and cite sources when appropriate:\n\n\(webContext)"
                 }
-                
+
                 apiMessages.append(
                     OpenRouterMessage(role: "system", content: [.text(systemPrompt)]))
 

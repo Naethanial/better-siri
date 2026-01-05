@@ -1,5 +1,5 @@
-import SwiftUI
 import AppKit
+import SwiftUI
 
 struct ChatInputView: View {
     @Binding var text: String
@@ -39,11 +39,20 @@ struct ChatInputView: View {
                 return onSubmit()
             }
         )
+        .blendMode(.difference)
         .frame(height: min(max(textHeight, minHeight), maxHeight))
         .padding(.horizontal, 12)
         .padding(.vertical, verticalPadding)
         .background(
-            GlassInputBackground(cornerRadius: 12, isActive: isActive)
+            ZStack {
+                // Exclusion layer rendered BELOW the liquid glass
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(.white)
+                    .blendMode(.exclusion)
+                    .opacity(0.2)  // Subtle intensity
+
+                GlassInputBackground(cornerRadius: 12, isActive: isActive)
+            }
         )
     }
 }
@@ -113,7 +122,8 @@ struct GrowingTextEditor: NSViewRepresentable {
 
         // Configure text container for wrapping
         textView.textContainer?.widthTracksTextView = true
-        textView.textContainer?.containerSize = NSSize(width: 0, height: CGFloat.greatestFiniteMagnitude)
+        textView.textContainer?.containerSize = NSSize(
+            width: 0, height: CGFloat.greatestFiniteMagnitude)
 
         // Store references
         context.coordinator.textView = textView
@@ -164,7 +174,8 @@ struct GrowingTextEditor: NSViewRepresentable {
 
             // Calculate the height needed for the text
             guard let layoutManager = textView.layoutManager,
-                  let textContainer = textView.textContainer else { return }
+                let textContainer = textView.textContainer
+            else { return }
 
             layoutManager.ensureLayout(for: textContainer)
             let usedRect = layoutManager.usedRect(for: textContainer)
