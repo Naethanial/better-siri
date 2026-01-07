@@ -102,6 +102,9 @@ struct PanelContentView: View {
             ChatInputView(
                 text: $viewModel.inputText,
                 isStreaming: viewModel.isStreaming,
+                onStop: {
+                    viewModel.cancelStreaming()
+                },
                 onSubmit: {
                     viewModel.sendMessage()
                 },
@@ -116,15 +119,11 @@ struct PanelContentView: View {
         .frame(width: targetWidth)
         .frame(maxHeight: maxHeight)
         .background {
-            if hasMessages {
-                GlassPanelBackground(cornerRadius: cornerRadius, isActive: isActive)
-            }
+            GlassPanelBackground(cornerRadius: cornerRadius, isActive: isActive)
         }
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .overlay {
-            if hasMessages {
-                PanelBorder(cornerRadius: cornerRadius, isActive: isActive)
-            }
+            PanelBorder(cornerRadius: cornerRadius, isActive: isActive)
         }
         .onAppear {
             onSizeChange(desiredSize)

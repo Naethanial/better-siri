@@ -4,6 +4,7 @@ import SwiftUI
 struct ChatInputView: View {
     @Binding var text: String
     let isStreaming: Bool
+    let onStop: () -> Void
     let onSubmit: () -> Bool
     let onHeightChange: (CGFloat) -> Void
 
@@ -25,35 +26,84 @@ struct ChatInputView: View {
     }
 
     var body: some View {
-        GrowingTextEditor(
-            text: $text,
-            colorScheme: colorScheme,
-            minHeight: minHeight,
-            maxHeight: maxHeight,
-            onHeightChange: { height in
-                textHeight = height
-                onHeightChange(totalHeight)
-            },
-            onSubmit: {
-                guard !isStreaming else { return false }
-                return onSubmit()
-            }
-        )
-        .blendMode(.difference)
-        .frame(height: min(max(textHeight, minHeight), maxHeight))
-        .padding(.horizontal, 12)
-        .padding(.vertical, verticalPadding)
-        .background(
-            ZStack {
-                // Exclusion layer rendered BELOW the liquid glass
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(.white)
-                    .blendMode(.exclusion)
-                    .opacity(0.2)  // Subtle intensity
+        HStack(alignment: .bottom, spacing: 8) {
+            GrowingTextEditor(
+                text: $text,
+                colorScheme: colorScheme,
+                minHeight: minHeight,
+                maxHeight: maxHeight,
+                onHeightChange: { height in
+                    textHeight = height
+                    onHeightChange(totalHeight)
+                },
+                onSubmit: {
+                    guard !isStreaming else { return false }
+                    return onSubmit()
+                }
+            )
+            .blendMode(.difference)
+            .frame(height: min(max(textHeight, minHeight), maxHeight))
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 12)
+            .padding(.vertical, verticalPadding)
+            .background(
+                ZStack {
+                    // Exclusion layer rendered BELOW the liquid glass
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .fill(.white)
+                        .blendMode(.exclusion)
+                        .opacity(0.2)  // Subtle intensity
 
-                GlassInputBackground(cornerRadius: 12, isActive: isActive)
+                    GlassInputBackground(cornerRadius: 12, isActive: isActive)
+                }
+            )
+
+            if isStreaming {
+                StopStreamingButton(action: onStop)
+                    .padding(.bottom, 6)
             }
-        )
+        }
+    }
+}
+
+private struct StopStreamingButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "stop.fill")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 30, height: 30)
+        }
+        .buttonStyle(.plain)
+        .background(StopStreamingButtonBackground())
+        .clipShape(Circle())
+        .help("Stop")
+    }
+}
+
+private struct StopStreamingButtonBackground: View {
+    var body: some View {
+        if #available(macOS 26.0, *) {
+            Circle()
+                .fill(.clear)
+                .glassEffect(
+                    .regular.tint(.red.opacity(0.55)).interactive(),
+                    in: .circle
+                )
+                .overlay(
+                    Circle()
+                        .strokeBorder(.white.opacity(0.22), lineWidth: 0.6)
+                )
+        } else {
+            Circle()
+                .fill(.red.opacity(0.85))
+                .overlay(
+                    Circle()
+                        .strokeBorder(.white.opacity(0.2), lineWidth: 0.6)
+                )
+        }
     }
 }
 

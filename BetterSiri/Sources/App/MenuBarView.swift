@@ -1,5 +1,5 @@
-import SwiftUI
 import KeyboardShortcuts
+import SwiftUI
 
 struct MenuBarView: View {
     @EnvironmentObject var coordinator: AppCoordinator

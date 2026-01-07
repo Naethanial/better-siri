@@ -24,14 +24,123 @@ class ChatViewModel: ObservableObject {
     private var cachedScreenshotBase64: String?
     private let openRouterClient = OpenRouterClient()
     private let perplexityService = PerplexityService()
+    private let browserUseService = BrowserUseService()
+    private let chromeRemoteDebuggingService = ChromeRemoteDebuggingService.shared
     private var streamTask: Task<Void, Never>?
 
     @AppStorage("openrouter_apiKey") private var apiKey: String = ""
     @AppStorage("openrouter_model") private var model: String = "google/gemini-3-flash-preview"
     @AppStorage("perplexity_apiKey") private var perplexityApiKey: String = ""
 
+    @AppStorage("browseruse_enabled") private var browserUseEnabled: Bool = false
+    @AppStorage("browseruse_python") private var browserUsePython: String =
+        "~/.bettersiri-browseruse-venv/bin/python"
+    @AppStorage("browseruse_chrome_executable_path") private var browserUseChromeExecutablePath:
+        String =
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    @AppStorage("browseruse_chrome_user_data_dir") private var browserUseChromeUserDataDir: String =
+        "~/Library/Application Support/BetterSiri/Chrome"
+    @AppStorage("browseruse_chrome_profile_directory") private var browserUseChromeProfileDirectory:
+        String = "Default"
+    @AppStorage("browseruse_max_steps") private var browserUseMaxSteps: Int = 50
+    @AppStorage("browseruse_headless") private var browserUseHeadless: Bool = false
+    @AppStorage("browseruse_use_vision") private var browserUseUseVision: Bool = true
+    @AppStorage("browseruse_auto_invoke") private var browserUseAutoInvoke: Bool = true
+    @AppStorage("browseruse_keep_browser_open") private var browserUseKeepBrowserOpen: Bool = true
+    @AppStorage("browseruse_remote_debugging_port") private var browserUseRemoteDebuggingPort: Int =
+        9222
+    @AppStorage("browseruse_attach_only") private var browserUseAttachOnly: Bool = false
+
     init(screenshot: CGImage) {
         self.screenshot = screenshot
+    }
+
+    private enum BrowserPlannedAction: Equatable {
+        case chat
+        case browserTask(String)
+        case browserStart
+        case browserStop
+    }
+
+    private struct BrowserRouteDecision: Decodable {
+        let route: String
+        let task: String?
+    }
+
+    private func parseBrowserCommand(from input: String) -> BrowserPlannedAction? {
+        guard input.hasPrefix("/browser") else { return nil }
+
+        let remainder = input.dropFirst("/browser".count)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if remainder.isEmpty || remainder == "start" || remainder == "open" {
+            return .browserStart
+        }
+        if remainder == "stop" || remainder == "close" {
+            return .browserStop
+        }
+
+        return .browserTask(remainder)
+    }
+
+    private func decideBrowserAction(for input: String) async throws -> BrowserPlannedAction {
+        let prompt = """
+            You are a routing assistant for a macOS chat app.
+
+            Decide whether the user's message should be handled by:
+            - chat: answer normally (no browser automation)
+            - browser_start: start/prepare a shared Chrome window for co-navigation
+            - browser_stop: stop the shared Chrome window (if the app started it)
+            - browser: run a browser automation agent to perform actions in the shared Chrome window
+
+            Use browser when the user wants you to *do something in a browser* (visit/open URLs, search, click, type, fill forms, navigate sites, download, etc).
+            Use chat when the user is asking for an explanation or information that does not require interacting with a website.
+            Use browser_start when the user asks to open/start Chrome or “open the browser window”.
+            Use browser_stop when the user asks to close/stop the browser window.
+
+            Respond with ONLY a single-line JSON object:
+            {"route":"chat"|"browser"|"browser_start"|"browser_stop","task":"<browser task if route=browser, else empty>"}
+            """
+
+        let routerMessages: [OpenRouterMessage] = [
+            OpenRouterMessage(role: "system", content: [.text(prompt)]),
+            OpenRouterMessage(role: "user", content: [.text(input)]),
+        ]
+
+        let raw = try await openRouterClient.completion(
+            messages: routerMessages, apiKey: apiKey, model: model)
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        let jsonString: String
+        if trimmed.hasPrefix("{") {
+            jsonString = trimmed
+        } else if let start = trimmed.firstIndex(of: "{"), let end = trimmed.lastIndex(of: "}") {
+            jsonString = String(trimmed[start...end])
+        } else {
+            return .chat
+        }
+
+        guard let data = jsonString.data(using: .utf8) else { return .chat }
+
+        let decision: BrowserRouteDecision
+        do {
+            decision = try JSONDecoder().decode(BrowserRouteDecision.self, from: data)
+        } catch {
+            AppLog.shared.log("Browser route decode failed: \(error)", level: .error)
+            return .chat
+        }
+
+        switch decision.route.lowercased() {
+        case "browser_start":
+            return .browserStart
+        case "browser_stop":
+            return .browserStop
+        case "browser":
+            let task = (decision.task ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return .browserTask(task.isEmpty ? input : task)
+        default:
+            return .chat
+        }
     }
 
     @discardableResult
@@ -39,11 +148,34 @@ class ChatViewModel: ObservableObject {
         let trimmedInput = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedInput.isEmpty else { return false }
         guard !isStreaming else { return false }
-        guard !apiKey.isEmpty else {
-            // Add error message if no API key
+
+        let explicitBrowserAction = parseBrowserCommand(from: trimmedInput)
+
+        if explicitBrowserAction != nil, !browserUseEnabled {
             messages.append(
                 ChatMessage(
-                    role: .assistant, content: "Please set your OpenRouter API key in Settings."))
+                    role: .assistant,
+                    content: "Browser agent is disabled. Enable it in Settings → Browser Agent."
+                )
+            )
+            return false
+        }
+
+        let requiresApiKey: Bool = {
+            guard let explicitBrowserAction else { return true }
+            switch explicitBrowserAction {
+            case .browserStart, .browserStop:
+                return false
+            case .browserTask, .chat:
+                return true
+            }
+        }()
+
+        if requiresApiKey, apiKey.isEmpty {
+            messages.append(
+                ChatMessage(
+                    role: .assistant, content: "Please set your OpenRouter API key in Settings."
+                ))
             AppLog.shared.log("Send blocked: missing API key", level: .error)
             return false
         }
@@ -69,7 +201,75 @@ class ChatViewModel: ObservableObject {
         AppLog.shared.log("Streaming started")
 
         streamTask = Task {
+            defer {
+                isStreaming = false
+            }
             do {
+                var plannedBrowserAction: BrowserPlannedAction = .chat
+
+                if let explicitBrowserAction {
+                    plannedBrowserAction = explicitBrowserAction
+                } else if browserUseEnabled, browserUseAutoInvoke {
+                    plannedBrowserAction = try await decideBrowserAction(for: trimmedInput)
+                }
+
+                if plannedBrowserAction == .browserStart {
+                    messages[assistantIndex].content += "Opening browser window…\n"
+
+                    _ = try await chromeRemoteDebuggingService.ensureAvailable(
+                        chromeExecutablePath: browserUseChromeExecutablePath,
+                        chromeUserDataDir: browserUseChromeUserDataDir,
+                        chromeProfileDirectory: browserUseChromeProfileDirectory,
+                        remoteDebuggingPort: browserUseRemoteDebuggingPort,
+                        launchIfNeeded: true
+                    )
+
+                    messages[assistantIndex].content += "Browser window ready.\n"
+                    AppLog.shared.log("Browser window started")
+                    return
+                }
+
+                if plannedBrowserAction == .browserStop {
+                    await chromeRemoteDebuggingService.stop()
+                    messages[assistantIndex].content += "Browser window stopped.\n"
+                    AppLog.shared.log("Browser window stopped")
+                    return
+                }
+
+                if case .browserTask(let task) = plannedBrowserAction, !task.isEmpty {
+                    AppLog.shared.log("Browser agent started (maxSteps: \(browserUseMaxSteps))")
+
+                    let cdpURL = try await chromeRemoteDebuggingService.ensureAvailable(
+                        chromeExecutablePath: browserUseChromeExecutablePath,
+                        chromeUserDataDir: browserUseChromeUserDataDir,
+                        chromeProfileDirectory: browserUseChromeProfileDirectory,
+                        remoteDebuggingPort: browserUseRemoteDebuggingPort,
+                        launchIfNeeded: !browserUseAttachOnly
+                    )
+
+                    let stream = await browserUseService.runAgent(
+                        task: task,
+                        pythonCommand: browserUsePython,
+                        cdpURL: cdpURL,
+                        openRouterApiKey: apiKey,
+                        openRouterModel: model,
+                        maxSteps: browserUseMaxSteps,
+                        useVision: browserUseUseVision
+                    )
+
+                    for try await chunk in stream {
+                        messages[assistantIndex].content += chunk
+                    }
+
+                    AppLog.shared.log("Browser agent completed")
+
+                    if !browserUseKeepBrowserOpen {
+                        await chromeRemoteDebuggingService.stop()
+                        AppLog.shared.log("Browser window stopped (keep-open disabled)")
+                    }
+                    return
+                }
+
                 // Prepare base64 screenshot if not cached
                 if cachedScreenshotBase64 == nil {
                     cachedScreenshotBase64 = try await openRouterClient.encodeImageToBase64(
@@ -137,13 +337,18 @@ class ChatViewModel: ObservableObject {
                     messages[assistantIndex].content += token
                 }
 
-                isStreaming = false
                 AppLog.shared.log("Streaming completed")
 
+            } catch is CancellationError {
+                AppLog.shared.log("Streaming cancelled")
+                return
             } catch {
-                // Update the assistant message with error
-                messages[assistantIndex].content = "Error: \(error.localizedDescription)"
-                isStreaming = false
+                let errorText = "Error: \(error.localizedDescription)"
+                if messages[assistantIndex].content.isEmpty {
+                    messages[assistantIndex].content = errorText
+                } else {
+                    messages[assistantIndex].content += "\n" + errorText
+                }
                 AppLog.shared.log("Streaming failed: \(error)", level: .error)
             }
         }
@@ -154,6 +359,7 @@ class ChatViewModel: ObservableObject {
     func cancelStreaming() {
         streamTask?.cancel()
         streamTask = nil
+        Task { await browserUseService.cancelCurrentRun() }
         isStreaming = false
         AppLog.shared.log("Streaming cancelled")
     }

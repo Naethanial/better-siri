@@ -1,5 +1,5 @@
-import SwiftUI
 import KeyboardShortcuts
+import SwiftUI
 
 @main
 struct BetterSiriApp: App {
@@ -26,6 +26,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         AppLog.shared.log("Application launched")
+        migrateBrowserUserDataDirIfNeeded()
         // Register default shortcut if none exists
         if KeyboardShortcuts.getShortcut(for: .togglePanel) == nil {
             KeyboardShortcuts.setShortcut(.init(.period, modifiers: .command), for: .togglePanel)
@@ -40,6 +41,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         AppLog.shared.log("Application terminating")
         coordinator.cleanup()
+    }
+
+    private func migrateBrowserUserDataDirIfNeeded() {
+        let key = "browseruse_chrome_user_data_dir"
+        guard let current = UserDefaults.standard.string(forKey: key) else { return }
+
+        let oldDefault = "~/Library/Application Support/Google/Chrome"
+        let oldDefaultExpanded = NSString(string: oldDefault).expandingTildeInPath
+        guard current == oldDefault || current == oldDefaultExpanded else { return }
+
+        let newDefault = "~/Library/Application Support/BetterSiri/Chrome"
+        UserDefaults.standard.set(newDefault, forKey: key)
+        AppLog.shared.log(
+            "Migrated browser-use Chrome user data dir to non-default profile (required for remote debugging)."
+        )
     }
 }
 

@@ -8,7 +8,7 @@ struct PerplexitySearchRequest: Codable {
     let max_results: Int?
     let max_tokens: Int?
     let search_recency_filter: String?
-    
+
     init(
         query: String,
         maxResults: Int = 10,
@@ -25,7 +25,7 @@ struct PerplexitySearchRequest: Codable {
 /// Response from Perplexity Search API
 struct PerplexitySearchResponse: Codable {
     let results: [SearchResult]
-    
+
     struct SearchResult: Codable {
         let title: String
         let url: String
@@ -40,7 +40,7 @@ enum PerplexityError: Error, LocalizedError {
     case httpError(Int, String?)
     case noResults
     case apiKeyMissing
-    
+
     var errorDescription: String? {
         switch self {
         case .invalidResponse:
@@ -61,59 +61,75 @@ enum PerplexityError: Error, LocalizedError {
 /// Service for fetching web search results via Perplexity Search API
 actor PerplexityService {
     private let baseURL = URL(string: "https://api.perplexity.ai/search")!
-    
+    private let maxQueryCharacters = 8192
+
     /// Searches the web for relevant context based on the user's query
     /// Returns formatted search results, or nil if the API key is not set
     func searchForContext(query: String, apiKey: String) async throws -> String? {
         guard !apiKey.isEmpty else {
-            return nil // Silently skip if no API key
+            return nil  // Silently skip if no API key
         }
-        
-        AppLog.shared.log("Perplexity search started for query: \(query.prefix(50))...")
-        
+
+        let trimmedQuery = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedQuery.isEmpty else { return nil }
+
+        let safeQuery: String
+        if trimmedQuery.count > maxQueryCharacters {
+            safeQuery = String(trimmedQuery.prefix(maxQueryCharacters))
+            AppLog.shared.log(
+                "Perplexity query truncated (chars: \(trimmedQuery.count) → \(maxQueryCharacters))"
+            )
+        } else {
+            safeQuery = trimmedQuery
+        }
+
+        AppLog.shared.log("Perplexity search started for query: \(safeQuery.prefix(50))...")
+
         let requestBody = PerplexitySearchRequest(
-            query: query,
+            query: safeQuery,
             maxResults: 5,
             maxTokens: 10000,
             recencyFilter: nil
         )
-        
+
         var request = URLRequest(url: baseURL)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(requestBody)
-        
+
         let (data, response) = try await URLSession.shared.data(for: request)
-        
+
         guard let httpResponse = response as? HTTPURLResponse else {
             throw PerplexityError.invalidResponse
         }
-        
+
         guard httpResponse.statusCode == 200 else {
             let errorMessage = String(data: data, encoding: .utf8)
-            AppLog.shared.log("Perplexity HTTP error: \(httpResponse.statusCode) - \(errorMessage ?? "unknown")", level: .error)
+            AppLog.shared.log(
+                "Perplexity HTTP error: \(httpResponse.statusCode) - \(errorMessage ?? "unknown")",
+                level: .error)
             throw PerplexityError.httpError(httpResponse.statusCode, errorMessage)
         }
-        
+
         let searchResponse = try JSONDecoder().decode(PerplexitySearchResponse.self, from: data)
-        
+
         guard !searchResponse.results.isEmpty else {
             AppLog.shared.log("Perplexity search returned no results")
             return nil
         }
-        
+
         // Format the search results as context for the model
         let formattedResults = formatSearchResults(searchResponse.results)
-        
+
         AppLog.shared.log("Perplexity search completed (results: \(searchResponse.results.count))")
         return formattedResults
     }
-    
+
     /// Formats search results into a readable context string for the model
     private func formatSearchResults(_ results: [PerplexitySearchResponse.SearchResult]) -> String {
         var context = "Web Search Results:\n\n"
-        
+
         for (index, result) in results.enumerated() {
             context += "[\(index + 1)] \(result.title)\n"
             context += "URL: \(result.url)\n"
@@ -123,7 +139,7 @@ actor PerplexityService {
             }
             context += "\n"
         }
-        
+
         return context
     }
 }
