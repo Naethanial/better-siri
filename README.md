@@ -25,7 +25,7 @@ A macOS AI assistant that captures your screen and answers questions about what 
 ### Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/BetterSiri.git
+git clone https://github.com/Naethanial/BetterSiri.git
 cd BetterSiri
 ```
 
