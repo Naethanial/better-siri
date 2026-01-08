@@ -1,5 +1,6 @@
 # Build artifacts
 .build/
+BetterSiri.app/
 Cluely.app/
 *.xcodeproj/
 *.xcworkspace/
