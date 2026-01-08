@@ -16,7 +16,7 @@ A macOS AI assistant that captures your screen and answers questions about what 
 
 - macOS 15.0+ (Sequoia or later)
 - Xcode Command Line Tools (`xcode-select --install`)
-- Swift 6.0+ (included with Xcode 16+)
+- Swift 6.0+ (included with Xcode 16+ or ([download here](https://www.swift.org/install/macos/))
 - OpenRouter API key ([get one here](https://openrouter.ai/keys))
 - Optional (for Browser Agent): Python 3.11+ with `browser-use` installed
 
