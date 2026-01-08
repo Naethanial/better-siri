@@ -196,13 +196,13 @@ private struct AssistantActivityView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(titleText)
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 16, weight: .thin, design: .default))
                 .foregroundStyle(.white.opacity(0.35))
                 .shimmering()
 
             if !logText.isEmpty {
                 Text(logText)
-                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    .font(.system(size: 12, weight: .thin, design: .default))
                     .foregroundStyle(.white.opacity(0.25))
                     .fixedSize(horizontal: false, vertical: true)
             }
