@@ -1,10 +1,16 @@
 import CoreGraphics
 import SwiftUI
 
+struct ChatAssistantActivity: Equatable {
+    var title: String
+    var log: String
+}
+
 struct ChatMessage: Identifiable, Equatable {
     let id = UUID()
     let role: MessageRole
     var content: String
+    var assistantActivity: ChatAssistantActivity? = nil
     let timestamp = Date()
 
     enum MessageRole {
@@ -22,6 +28,7 @@ class ChatViewModel: ObservableObject {
 
     let screenshot: CGImage
     private var cachedScreenshotBase64: String?
+    private let assistantActivityLogMaxCharacters = 12_000
     private let openRouterClient = OpenRouterClient()
     private let perplexityService = PerplexityService()
     private let browserUseService = BrowserUseService()
@@ -53,6 +60,40 @@ class ChatViewModel: ObservableObject {
 
     init(screenshot: CGImage) {
         self.screenshot = screenshot
+    }
+
+    private func setAssistantActivity(
+        at index: Int,
+        title: String? = nil,
+        appendLog: String? = nil
+    ) {
+        guard messages.indices.contains(index) else { return }
+        guard messages[index].role == .assistant else { return }
+
+        let defaultTitle = title ?? messages[index].assistantActivity?.title ?? "Thinking"
+        var activity =
+            messages[index].assistantActivity
+            ?? ChatAssistantActivity(title: defaultTitle, log: "")
+
+        if let title {
+            activity.title = title
+        }
+
+        if let appendLog, !appendLog.isEmpty {
+            activity.log += appendLog
+            if activity.log.count > assistantActivityLogMaxCharacters {
+                activity.log = String(activity.log.suffix(assistantActivityLogMaxCharacters))
+            }
+        }
+
+        messages[index].assistantActivity = activity
+    }
+
+    private func finishAssistantMessage(at index: Int, content: String) {
+        guard messages.indices.contains(index) else { return }
+        guard messages[index].role == .assistant else { return }
+        messages[index].assistantActivity = nil
+        messages[index].content = content
     }
 
     private enum BrowserPlannedAction: Equatable {
@@ -192,7 +233,11 @@ class ChatViewModel: ObservableObject {
         hasSentFirstMessage = true
 
         // Add empty assistant message that will be filled with streaming content
-        let assistantMessage = ChatMessage(role: .assistant, content: "")
+        let assistantMessage = ChatMessage(
+            role: .assistant,
+            content: "",
+            assistantActivity: ChatAssistantActivity(title: "Thinking", log: "")
+        )
         messages.append(assistantMessage)
         let assistantIndex = messages.count - 1
 
@@ -204,17 +249,25 @@ class ChatViewModel: ObservableObject {
             defer {
                 isStreaming = false
             }
+
+            var bufferedFinalContent = ""
             do {
                 var plannedBrowserAction: BrowserPlannedAction = .chat
 
                 if let explicitBrowserAction {
                     plannedBrowserAction = explicitBrowserAction
                 } else if browserUseEnabled, browserUseAutoInvoke {
+                    setAssistantActivity(
+                        at: assistantIndex, title: "Thinking", appendLog: "Planning…\n")
                     plannedBrowserAction = try await decideBrowserAction(for: trimmedInput)
                 }
 
                 if plannedBrowserAction == .browserStart {
-                    messages[assistantIndex].content += "Opening browser window…\n"
+                    setAssistantActivity(
+                        at: assistantIndex,
+                        title: "Browsing",
+                        appendLog: "Opening browser window…\n"
+                    )
 
                     _ = try await chromeRemoteDebuggingService.ensureAvailable(
                         chromeExecutablePath: browserUseChromeExecutablePath,
@@ -224,19 +277,31 @@ class ChatViewModel: ObservableObject {
                         launchIfNeeded: true
                     )
 
-                    messages[assistantIndex].content += "Browser window ready.\n"
+                    bufferedFinalContent = "Browser window ready."
+                    finishAssistantMessage(at: assistantIndex, content: bufferedFinalContent)
                     AppLog.shared.log("Browser window started")
                     return
                 }
 
                 if plannedBrowserAction == .browserStop {
+                    setAssistantActivity(
+                        at: assistantIndex,
+                        title: "Browsing",
+                        appendLog: "Stopping browser window…\n"
+                    )
                     await chromeRemoteDebuggingService.stop()
-                    messages[assistantIndex].content += "Browser window stopped.\n"
+                    bufferedFinalContent = "Browser window stopped."
+                    finishAssistantMessage(at: assistantIndex, content: bufferedFinalContent)
                     AppLog.shared.log("Browser window stopped")
                     return
                 }
 
                 if case .browserTask(let task) = plannedBrowserAction, !task.isEmpty {
+                    setAssistantActivity(
+                        at: assistantIndex,
+                        title: "Browsing",
+                        appendLog: "Task: \(task)\n"
+                    )
                     AppLog.shared.log("Browser agent started (maxSteps: \(browserUseMaxSteps))")
 
                     let cdpURL = try await chromeRemoteDebuggingService.ensureAvailable(
@@ -246,6 +311,8 @@ class ChatViewModel: ObservableObject {
                         remoteDebuggingPort: browserUseRemoteDebuggingPort,
                         launchIfNeeded: !browserUseAttachOnly
                     )
+
+                    setAssistantActivity(at: assistantIndex, appendLog: "Connected to Chrome.\n")
 
                     let stream = await browserUseService.runAgent(
                         task: task,
@@ -258,7 +325,21 @@ class ChatViewModel: ObservableObject {
                     )
 
                     for try await chunk in stream {
-                        messages[assistantIndex].content += chunk
+                        if chunk.hasPrefix("BETTER_SIRI_FINAL_RESULT: ") {
+                            let json = chunk.replacingOccurrences(
+                                of: "BETTER_SIRI_FINAL_RESULT: ",
+                                with: ""
+                            ).trimmingCharacters(in: .whitespacesAndNewlines)
+                            if let data = json.data(using: .utf8),
+                                let object = try? JSONSerialization.jsonObject(with: data)
+                                    as? [String: Any],
+                                let final = object["final"] as? String
+                            {
+                                bufferedFinalContent = final
+                            }
+                        } else {
+                            setAssistantActivity(at: assistantIndex, appendLog: chunk)
+                        }
                     }
 
                     AppLog.shared.log("Browser agent completed")
@@ -267,6 +348,11 @@ class ChatViewModel: ObservableObject {
                         await chromeRemoteDebuggingService.stop()
                         AppLog.shared.log("Browser window stopped (keep-open disabled)")
                     }
+
+                    finishAssistantMessage(
+                        at: assistantIndex,
+                        content: bufferedFinalContent.isEmpty ? "Done." : bufferedFinalContent
+                    )
                     return
                 }
 
@@ -279,13 +365,28 @@ class ChatViewModel: ObservableObject {
                 // Fetch web search context if Perplexity API key is configured
                 var webContext: String? = nil
                 if !perplexityApiKey.isEmpty {
+                    setAssistantActivity(
+                        at: assistantIndex,
+                        title: "Researching",
+                        appendLog: "Searching the web…\n"
+                    )
                     do {
                         webContext = try await perplexityService.searchForContext(
                             query: trimmedInput,
                             apiKey: perplexityApiKey
                         )
+                        if webContext != nil {
+                            setAssistantActivity(
+                                at: assistantIndex, appendLog: "Web context ready.\n")
+                        } else {
+                            setAssistantActivity(at: assistantIndex, appendLog: "No results.\n")
+                        }
                     } catch {
                         AppLog.shared.log("Perplexity search failed: \(error)", level: .error)
+                        setAssistantActivity(
+                            at: assistantIndex,
+                            appendLog: "Web search failed; continuing without it.\n"
+                        )
                         // Continue without web context
                     }
                 }
@@ -332,23 +433,28 @@ class ChatViewModel: ObservableObject {
                     model: model
                 )
 
+                setAssistantActivity(
+                    at: assistantIndex,
+                    title: "Thinking",
+                    appendLog: "Composing response…\n"
+                )
                 for try await token in stream {
-                    // Append token to the assistant message
-                    messages[assistantIndex].content += token
+                    bufferedFinalContent += token
                 }
 
+                finishAssistantMessage(at: assistantIndex, content: bufferedFinalContent)
                 AppLog.shared.log("Streaming completed")
 
             } catch is CancellationError {
+                finishAssistantMessage(
+                    at: assistantIndex,
+                    content: bufferedFinalContent.isEmpty ? "Cancelled." : bufferedFinalContent
+                )
                 AppLog.shared.log("Streaming cancelled")
                 return
             } catch {
                 let errorText = "Error: \(error.localizedDescription)"
-                if messages[assistantIndex].content.isEmpty {
-                    messages[assistantIndex].content = errorText
-                } else {
-                    messages[assistantIndex].content += "\n" + errorText
-                }
+                finishAssistantMessage(at: assistantIndex, content: errorText)
                 AppLog.shared.log("Streaming failed: \(error)", level: .error)
             }
         }
@@ -357,10 +463,17 @@ class ChatViewModel: ObservableObject {
     }
 
     func cancelStreaming() {
+        let wasStreaming = isStreaming || streamTask != nil
+        stopAllActivity()
+        if wasStreaming {
+            AppLog.shared.log("Streaming cancelled")
+        }
+    }
+
+    func stopAllActivity() {
         streamTask?.cancel()
         streamTask = nil
         Task { await browserUseService.cancelCurrentRun() }
         isStreaming = false
-        AppLog.shared.log("Streaming cancelled")
     }
 }

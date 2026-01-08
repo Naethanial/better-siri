@@ -1,5 +1,5 @@
-import SwiftUI
 import Combine
+import SwiftUI
 import UniformTypeIdentifiers
 
 @MainActor
@@ -15,6 +15,7 @@ class AppCoordinator: ObservableObject {
         // Set up panel close callback
         panelController.onClose = { [weak self] in
             self?.isPanelOpen = false
+            self?.chatViewModel?.stopAllActivity()
             self?.chatViewModel = nil
             AppLog.shared.log("Panel closed")
         }
@@ -22,11 +23,15 @@ class AppCoordinator: ObservableObject {
     }
 
     func togglePanel() {
-        // Always open/refresh when the shortcut is pressed
-        openPanel()
+        if isPanelOpen {
+            closePanel()
+        } else {
+            openPanel()
+        }
     }
 
     func closePanel() {
+        chatViewModel?.stopAllActivity()
         panelController.close()
         isPanelOpen = false
         chatViewModel = nil
@@ -53,7 +58,8 @@ class AppCoordinator: ObservableObject {
                 let cursorPosition = NSEvent.mouseLocation
 
                 // Get the screen containing the cursor
-                let screen = NSScreen.screens.first { $0.frame.contains(cursorPosition) } ?? NSScreen.main!
+                let screen =
+                    NSScreen.screens.first { $0.frame.contains(cursorPosition) } ?? NSScreen.main!
 
                 // Show the panel
                 panelController.show(
@@ -80,13 +86,17 @@ class AppCoordinator: ObservableObject {
     private func showPermissionAlert() {
         let alert = NSAlert()
         alert.messageText = "Screen Recording Permission Required"
-        alert.informativeText = "Better Siri needs screen recording permission to capture context. Please enable it in System Settings > Privacy & Security > Screen Recording."
+        alert.informativeText =
+            "Better Siri needs screen recording permission to capture context. Please enable it in System Settings > Privacy & Security > Screen Recording."
         alert.alertStyle = .warning
         alert.addButton(withTitle: "Open System Settings")
         alert.addButton(withTitle: "Cancel")
 
         if alert.runModal() == .alertFirstButtonReturn {
-            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+            if let url = URL(
+                string:
+                    "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture")
+            {
                 NSWorkspace.shared.open(url)
                 AppLog.shared.log("Opened System Settings for screen recording permission")
             }

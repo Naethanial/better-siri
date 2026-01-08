@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 
 enum BrowserUseError: Error, LocalizedError {
@@ -27,6 +28,7 @@ actor BrowserUseService {
     private static let runnerScript = """
         import argparse
         import asyncio
+        import json
         import os
         import sys
 
@@ -77,9 +79,15 @@ actor BrowserUseService {
                 use_vision=args.use_vision,
             )
 
+            real_stdout = sys.stdout
+            sys.stdout = sys.stderr
+
             history = await agent.run(max_steps=args.max_steps)
             result = history.final_result() or "Done."
-            print(result, flush=True)
+
+            sys.stdout = real_stdout
+            payload = {"final": str(result)}
+            print("BETTER_SIRI_FINAL_RESULT: " + json.dumps(payload), flush=True)
             return 0
 
 
@@ -219,7 +227,17 @@ actor BrowserUseService {
 
     func cancelCurrentRun() {
         guard let process = currentProcess, process.isRunning else { return }
+        let pid = process.processIdentifier
+        process.interrupt()
         process.terminate()
+
+        guard pid > 0 else { return }
+        Task.detached {
+            try? await Task.sleep(nanoseconds: 100_000_000)
+            if kill(pid, 0) == 0 {
+                _ = kill(pid, SIGKILL)
+            }
+        }
     }
 
     private func clearCurrentProcess(_ process: Process) {

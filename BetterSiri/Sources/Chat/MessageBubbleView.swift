@@ -1,6 +1,6 @@
-import SwiftUI
-import MarkdownUI
 import LaTeXSwiftUI
+import MarkdownUI
+import SwiftUI
 
 struct MessageBubbleView: View {
     let message: ChatMessage
@@ -15,16 +15,22 @@ struct MessageBubbleView: View {
                 Spacer(minLength: 40)
             }
 
-            MessageRichTextView(
-                text: message.content.isEmpty ? " " : message.content,
-                foregroundColor: isUser ? .white : .primary
-            )
-            .textSelection(.enabled)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .background(
-                BubbleBackground(isUser: isUser)
-            )
+            if !isUser, let activity = message.assistantActivity {
+                AssistantActivityView(activity: activity)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+            } else {
+                MessageRichTextView(
+                    text: message.content.isEmpty ? " " : message.content,
+                    foregroundColor: isUser ? .white : .primary
+                )
+                .textSelection(.enabled)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(
+                    BubbleBackground(isUser: isUser)
+                )
+            }
 
             if !isUser {
                 Spacer(minLength: 40)
@@ -39,7 +45,8 @@ private struct MessageRichTextView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            ForEach(Array(MessageMarkupSegmenter.segments(from: text).enumerated()), id: \.offset) { _, segment in
+            ForEach(Array(MessageMarkupSegmenter.segments(from: text).enumerated()), id: \.offset) {
+                _, segment in
                 switch segment {
                 case .markdown(let markdown):
                     Markdown(markdown)
@@ -84,7 +91,8 @@ private enum MessageMarkupSegmenter {
                 appendMarkdown(remaining[..<codeFence.lowerBound])
 
                 let afterStart = codeFence.upperBound
-                if let endFence = remaining.range(of: "```", range: afterStart..<remaining.endIndex) {
+                if let endFence = remaining.range(of: "```", range: afterStart..<remaining.endIndex)
+                {
                     let block = remaining[codeFence.lowerBound..<endFence.upperBound]
                     segments.append(.markdown(String(block)))
                     remaining = remaining[endFence.upperBound...]
@@ -118,13 +126,15 @@ private enum MessageMarkupSegmenter {
             input.range(of: "$$"),
             input.range(of: "\\["),
             input.range(of: "\\begin{equation*}"),
-            input.range(of: "\\begin{equation}")
+            input.range(of: "\\begin{equation}"),
         ]
 
         return candidates.compactMap { $0 }.min(by: { $0.lowerBound < $1.lowerBound })
     }
 
-    private static func latexEndRange(forStart start: Range<Substring.Index>, in input: Substring) -> Range<Substring.Index>? {
+    private static func latexEndRange(forStart start: Range<Substring.Index>, in input: Substring)
+        -> Range<Substring.Index>?
+    {
         let startToken = String(input[start])
 
         let endToken: String
@@ -141,11 +151,15 @@ private enum MessageMarkupSegmenter {
         }
 
         let searchStart = start.upperBound
-        guard let end = input.range(of: endToken, range: searchStart..<input.endIndex) else { return nil }
+        guard let end = input.range(of: endToken, range: searchStart..<input.endIndex) else {
+            return nil
+        }
         return start.lowerBound..<end.upperBound
     }
 
-    private static func coalesceMarkdownSegments(_ segments: [MessageMarkupSegment]) -> [MessageMarkupSegment] {
+    private static func coalesceMarkdownSegments(_ segments: [MessageMarkupSegment])
+        -> [MessageMarkupSegment]
+    {
         var output: [MessageMarkupSegment] = []
 
         for segment in segments {
@@ -166,11 +180,43 @@ private enum MessageMarkupSegmenter {
     }
 }
 
+private struct AssistantActivityView: View {
+    let activity: ChatAssistantActivity
+
+    private var titleText: String {
+        activity.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            ? "Thinking"
+            : activity.title
+    }
+
+    private var logText: String {
+        activity.log.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(titleText)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.35))
+                .shimmering()
+
+            if !logText.isEmpty {
+                Text(logText)
+                    .font(.system(size: 12, weight: .regular, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.25))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .transition(.opacity)
+    }
+}
+
 struct BubbleBackground: View {
     let isUser: Bool
-    
+
     private let cornerRadius: CGFloat = 14
-    
+
     var body: some View {
         if #available(macOS 26.0, *) {
             // Liquid Glass bubbles
@@ -210,10 +256,55 @@ struct BubbleBackground: View {
     }
 }
 
+private struct ShimmeringModifier: ViewModifier {
+    @State private var phase: CGFloat = -1
+    let duration: TimeInterval
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                GeometryReader { proxy in
+                    let width = proxy.size.width
+                    LinearGradient(
+                        colors: [
+                            .white.opacity(0.05),
+                            .white.opacity(0.55),
+                            .white.opacity(0.05),
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .frame(width: width * 3)
+                    .rotationEffect(.degrees(18))
+                    .offset(x: phase * width * 2)
+                }
+                .mask(content)
+                .allowsHitTesting(false)
+            }
+            .onAppear {
+                phase = -1
+                withAnimation(.linear(duration: duration).repeatForever(autoreverses: false)) {
+                    phase = 1
+                }
+            }
+    }
+}
+
+extension View {
+    fileprivate func shimmering(duration: TimeInterval = 1.35) -> some View {
+        modifier(ShimmeringModifier(duration: duration))
+    }
+}
+
 #Preview {
     VStack(spacing: 12) {
         MessageBubbleView(message: ChatMessage(role: .user, content: "Hello, what's on my screen?"))
-        MessageBubbleView(message: ChatMessage(role: .assistant, content: "I can see you have a code editor open with some Swift code. It looks like you're working on a macOS application."))
+        MessageBubbleView(
+            message: ChatMessage(
+                role: .assistant,
+                content:
+                    "I can see you have a code editor open with some Swift code. It looks like you're working on a macOS application."
+            ))
     }
     .padding()
     .frame(width: 400)

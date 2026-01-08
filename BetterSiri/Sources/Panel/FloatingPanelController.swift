@@ -3,7 +3,8 @@ import SwiftUI
 
 /// Root wrapper that applies user's appearance preference to the panel.
 struct PanelRootView<Content: View>: View {
-    @AppStorage("appearance_mode") private var appearanceModeRaw: String = AppearanceMode.system.rawValue
+    @AppStorage("appearance_mode") private var appearanceModeRaw: String = AppearanceMode.system
+        .rawValue
 
     let content: () -> Content
 
@@ -23,11 +24,12 @@ struct PanelRootView<Content: View>: View {
 
 /// Helper to get the current NSAppearance based on the stored preference
 func appearanceFromUserDefault() -> NSAppearance? {
-    let raw = UserDefaults.standard.string(forKey: "appearance_mode") ?? AppearanceMode.system.rawValue
+    let raw =
+        UserDefaults.standard.string(forKey: "appearance_mode") ?? AppearanceMode.system.rawValue
     let mode = AppearanceMode(rawValue: raw) ?? .system
     switch mode {
     case .system:
-        return nil // follow system
+        return nil  // follow system
     case .light:
         return NSAppearance(named: .aqua)
     case .dark:
@@ -36,7 +38,7 @@ func appearanceFromUserDefault() -> NSAppearance? {
 }
 
 @MainActor
-class FloatingPanelController {
+class FloatingPanelController: NSObject, NSWindowDelegate {
     private var panel: NSPanel?
     private var hostingView: NSHostingView<AnyView>?
 
@@ -51,9 +53,11 @@ class FloatingPanelController {
     private let cornerRadius: CGFloat = 16
 
     var onClose: (() -> Void)?
+    private var didHandleClose: Bool = false
 
     func show(at cursorPosition: CGPoint, on screen: NSScreen, viewModel: ChatViewModel) {
         close()
+        didHandleClose = false
 
         // Calculate initial position (bottom-left at cursor)
         let initialX = cursorPosition.x
@@ -69,7 +73,8 @@ class FloatingPanelController {
 
         // Create the panel
         let panel = FloatingPanel(
-            contentRect: NSRect(x: initialX, y: panelBottomY, width: initialWidth, height: minHeight),
+            contentRect: NSRect(
+                x: initialX, y: panelBottomY, width: initialWidth, height: minHeight),
             styleMask: [.nonactivatingPanel, .fullSizeContentView, .borderless],
             backing: .buffered,
             defer: false
@@ -87,6 +92,7 @@ class FloatingPanelController {
         // Apply user's appearance preference to the window itself
         // This ensures AppKit views (like NSTextView) get the correct appearance from the start
         panel.appearance = appearanceFromUserDefault()
+        panel.delegate = self
 
         // Create the content view
         let panelContentView = PanelContentView(
@@ -135,6 +141,17 @@ class FloatingPanelController {
 
     func close() {
         panel?.close()
+        handleWindowClosed()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        handleWindowClosed()
+    }
+
+    private func handleWindowClosed() {
+        guard !didHandleClose else { return }
+        didHandleClose = true
+
         panel = nil
         hostingView = nil
         onClose?()
@@ -205,7 +222,7 @@ class FloatingPanel: NSPanel {
 
     override func keyDown(with event: NSEvent) {
         // Handle Escape to close
-        if event.keyCode == 53 { // Escape key
+        if event.keyCode == 53 {  // Escape key
             close()
             return
         }

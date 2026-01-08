@@ -95,6 +95,14 @@ struct PanelContentView: View {
                             }
                         }
                     }
+                    .onChange(of: viewModel.messages.last?.assistantActivity?.log) { _, _ in
+                        // Auto-scroll to bottom when tool activity updates
+                        if let lastMessage = viewModel.messages.last {
+                            withAnimation(.easeOut(duration: 0.1)) {
+                                proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                            }
+                        }
+                    }
                 }
             }
 
