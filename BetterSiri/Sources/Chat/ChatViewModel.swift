@@ -37,7 +37,9 @@ class ChatViewModel: ObservableObject {
 
     @AppStorage("openrouter_apiKey") private var apiKey: String = ""
     @AppStorage("openrouter_model") private var model: String = "google/gemini-3-flash-preview"
+    @AppStorage("openrouter_reasoning_effort") private var reasoningEffortRaw: String = "default"
     @AppStorage("perplexity_apiKey") private var perplexityApiKey: String = ""
+    @AppStorage("show_thinking_traces") private var showThinkingTraces: Bool = true
 
     @AppStorage("browseruse_enabled") private var browserUseEnabled: Bool = false
     @AppStorage("browseruse_python") private var browserUsePython: String =
@@ -62,6 +64,16 @@ class ChatViewModel: ObservableObject {
         self.screenshot = screenshot
     }
 
+    private static func isCancellationError(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled { return true }
+
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain, nsError.code == -999 { return true }
+
+        return false
+    }
+
     private func setAssistantActivity(
         at index: Int,
         title: String? = nil,
@@ -69,6 +81,7 @@ class ChatViewModel: ObservableObject {
     ) {
         guard messages.indices.contains(index) else { return }
         guard messages[index].role == .assistant else { return }
+        guard showThinkingTraces else { return }
 
         let defaultTitle = title ?? messages[index].assistantActivity?.title ?? "Thinking"
         var activity =
@@ -94,6 +107,52 @@ class ChatViewModel: ObservableObject {
         guard messages[index].role == .assistant else { return }
         messages[index].assistantActivity = nil
         messages[index].content = content
+    }
+
+    private func formatBrowserTrace(_ trace: [String: Any]) -> String {
+        guard let event = trace["event"] as? String else { return "" }
+        let data = trace["data"] as? [String: Any] ?? [:]
+
+        switch event {
+        case "status":
+            let message = data["message"] as? String ?? ""
+            return "\(message)\n"
+        case "step":
+            let stepNum = data["step"] as? Int ?? 0
+            let thought = data["thought"] as? String
+            let action = data["action"] as? String
+
+            var output = "Step \(stepNum)"
+            if let action = action {
+                output += ": \(action)"
+            }
+            output += "\n"
+            if let thought = thought, !thought.isEmpty {
+                // Truncate long thoughts
+                let truncated = thought.count > 150 ? String(thought.prefix(150)) + "..." : thought
+                output += "  \(truncated)\n"
+            }
+            return output
+        default:
+            return ""
+        }
+    }
+
+    private func shouldFilterStderrLine(_ line: String) -> Bool {
+        // Filter out noisy stderr lines from browser-use
+        let noisyPrefixes = [
+            "[stderr] INFO",
+            "[stderr] DEBUG",
+            "[stderr] WARNING",
+            "[stderr] BETTER_SIRI_TRACE",
+            "[stderr] Using anonymized telemetry",
+        ]
+        for prefix in noisyPrefixes {
+            if line.hasPrefix(prefix) {
+                return true
+            }
+        }
+        return false
     }
 
     private enum BrowserPlannedAction: Equatable {
@@ -126,18 +185,23 @@ class ChatViewModel: ObservableObject {
 
     private func decideBrowserAction(for input: String) async throws -> BrowserPlannedAction {
         let prompt = """
-            You are a routing assistant for a macOS chat app.
+            You are a routing assistant for a macOS chat app that has screen capture context.
 
             Decide whether the user's message should be handled by:
-            - chat: answer normally (no browser automation)
-            - browser_start: start/prepare a shared Chrome window for co-navigation
-            - browser_stop: stop the shared Chrome window (if the app started it)
-            - browser: run a browser automation agent to perform actions in the shared Chrome window
+            - chat: answer normally (no browser automation) - THIS IS THE DEFAULT
+            - browser_start: start/prepare a shared browser window for co-navigation
+            - browser_stop: stop the shared browser window (if the app started it)
+            - browser: run a browser automation agent to perform actions in the browser
 
-            Use browser when the user wants you to *do something in a browser* (visit/open URLs, search, click, type, fill forms, navigate sites, download, etc).
-            Use chat when the user is asking for an explanation or information that does not require interacting with a website.
-            Use browser_start when the user asks to open/start Chrome or “open the browser window”.
-            Use browser_stop when the user asks to close/stop the browser window.
+            IMPORTANT RULES:
+            1. If the user is asking about something visible in a screenshot (even if it shows a browser), use "chat" - the app already has screen context.
+            2. Only use "browser" when the user EXPLICITLY asks you to "use browser", "use the browser", "in the browser", or similar explicit browser automation requests.
+            3. Questions like "what is this?", "explain this", "what does this mean?" should ALWAYS use "chat" even if a browser is visible in the screenshot.
+            4. Use "browser" ONLY for explicit automation requests like: "use browser to search for X", "open google in browser", "use browser to fill this form".
+            5. Use browser_start when the user explicitly asks to "open the browser window" or "start browser".
+            6. Use browser_stop when the user asks to close/stop the browser window.
+
+            When in doubt, use "chat".
 
             Respond with ONLY a single-line JSON object:
             {"route":"chat"|"browser"|"browser_start"|"browser_stop","task":"<browser task if route=browser, else empty>"}
@@ -149,7 +213,11 @@ class ChatViewModel: ObservableObject {
         ]
 
         let raw = try await openRouterClient.completion(
-            messages: routerMessages, apiKey: apiKey, model: model)
+            messages: routerMessages,
+            apiKey: apiKey,
+            model: model,
+            reasoningEffort: OpenRouterReasoningEffort(rawValue: reasoningEffortRaw) ?? .default
+        )
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
 
         let jsonString: String
@@ -320,6 +388,9 @@ class ChatViewModel: ObservableObject {
                         cdpURL: cdpURL,
                         openRouterApiKey: apiKey,
                         openRouterModel: model,
+                        openRouterReasoningEffort: OpenRouterReasoningEffort(
+                            rawValue: reasoningEffortRaw)
+                            ?? .default,
                         maxSteps: browserUseMaxSteps,
                         useVision: browserUseUseVision
                     )
@@ -337,7 +408,23 @@ class ChatViewModel: ObservableObject {
                             {
                                 bufferedFinalContent = final
                             }
-                        } else {
+                        } else if chunk.hasPrefix("BETTER_SIRI_TRACE: ") {
+                            let json = chunk.replacingOccurrences(
+                                of: "BETTER_SIRI_TRACE: ",
+                                with: ""
+                            ).trimmingCharacters(in: .whitespacesAndNewlines)
+                            if let data = json.data(using: .utf8),
+                                let trace = try? JSONSerialization.jsonObject(with: data)
+                                    as? [String: Any]
+                            {
+                                let formattedTrace = formatBrowserTrace(trace)
+                                if !formattedTrace.isEmpty {
+                                    setAssistantActivity(
+                                        at: assistantIndex, appendLog: formattedTrace)
+                                }
+                            }
+                        } else if !shouldFilterStderrLine(chunk) {
+                            // Only show non-filtered stderr output
                             setAssistantActivity(at: assistantIndex, appendLog: chunk)
                         }
                     }
@@ -430,7 +517,9 @@ class ChatViewModel: ObservableObject {
                 let stream = await openRouterClient.streamCompletion(
                     messages: apiMessages,
                     apiKey: apiKey,
-                    model: model
+                    model: model,
+                    reasoningEffort: OpenRouterReasoningEffort(rawValue: reasoningEffortRaw)
+                        ?? .default
                 )
 
                 setAssistantActivity(
@@ -445,14 +534,16 @@ class ChatViewModel: ObservableObject {
                 finishAssistantMessage(at: assistantIndex, content: bufferedFinalContent)
                 AppLog.shared.log("Streaming completed")
 
-            } catch is CancellationError {
-                finishAssistantMessage(
-                    at: assistantIndex,
-                    content: bufferedFinalContent.isEmpty ? "Cancelled." : bufferedFinalContent
-                )
-                AppLog.shared.log("Streaming cancelled")
-                return
             } catch {
+                if Self.isCancellationError(error) {
+                    finishAssistantMessage(
+                        at: assistantIndex,
+                        content: bufferedFinalContent.isEmpty ? "Cancelled." : bufferedFinalContent
+                    )
+                    AppLog.shared.log("Streaming cancelled")
+                    return
+                }
+
                 let errorText = "Error: \(error.localizedDescription)"
                 finishAssistantMessage(at: assistantIndex, content: errorText)
                 AppLog.shared.log("Streaming failed: \(error)", level: .error)

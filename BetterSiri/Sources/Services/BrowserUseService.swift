@@ -39,11 +39,23 @@ actor BrowserUseService {
             return os.path.expanduser(path)
 
 
+        _real_stdout = None
+
+        def emit_trace(event: str, data: dict = None):
+            payload = {"event": event}
+            if data:
+                payload["data"] = data
+            out = _real_stdout if _real_stdout else sys.stdout
+            print("BETTER_SIRI_TRACE: " + json.dumps(payload), file=out, flush=True)
+
+
         async def run() -> int:
+            global _real_stdout
             parser = argparse.ArgumentParser()
             parser.add_argument("--task", required=True)
             parser.add_argument("--model", required=True)
             parser.add_argument("--api-key", required=False)
+            parser.add_argument("--reasoning-effort", required=False, choices=["low", "medium", "high"])
 
             parser.add_argument("--cdp-url", required=True)
 
@@ -57,6 +69,8 @@ actor BrowserUseService {
                 print("ERROR: OPENROUTER_API_KEY is not set", flush=True)
                 return 2
 
+            emit_trace("status", {"message": "Initializing browser agent..."})
+
             try:
                 from browser_use import Agent, Browser, ChatOpenAI
             except Exception as e:
@@ -64,28 +78,104 @@ actor BrowserUseService {
                 print(str(e), flush=True)
                 return 3
 
+            emit_trace("status", {"message": "Connecting to browser..."})
+
             llm = ChatOpenAI(
                 model=args.model,
                 base_url=OPENROUTER_BASE_URL,
                 api_key=api_key,
+                reasoning_effort=args.reasoning_effort,
             )
 
             browser = Browser(cdp_url=args.cdp_url)
+
+            emit_trace("status", {"message": "Browser connected"})
+
+            def on_step(*args):
+                try:
+                    # browser-use 0.11.x calls register_new_step_callback(state_summary, agent_output, step_num)
+                    # Older versions used different shapes; accept *args defensively.
+                    state_summary = None
+                    agent_output = None
+                    step_num = None
+
+                    if len(args) == 3:
+                        state_summary, agent_output, step_num = args
+                    elif len(args) == 1:
+                        state_summary = args[0]
+                        step_num = getattr(state_summary, "step", None)
+                        agent_output = getattr(state_summary, "model_output", None)
+                    else:
+                        return
+
+                    thought = None
+                    action_desc = None
+
+                    if agent_output is not None:
+                        thought = getattr(agent_output, "thinking", None) or getattr(
+                            getattr(agent_output, "current_state", None), "thought", None
+                        )
+                        actions = getattr(agent_output, "action", None) or []
+                        act = actions[0] if actions else None
+                        if act is not None:
+                            action_name = act.__class__.__name__
+                            try:
+                                d = act.model_dump(exclude_none=True)
+                            except Exception:
+                                d = {}
+
+                            if "index" in d:
+                                action_desc = f"{action_name}: element {d['index']}"
+                            elif "url" in d:
+                                action_desc = f"{action_name}: {d['url']}"
+                            elif "text" in d:
+                                text = str(d["text"])
+                                action_desc = (
+                                    f"{action_name}: {text[:50]}..." if len(text) > 50 else f"{action_name}: {text}"
+                                )
+                            else:
+                                action_desc = action_name
+
+                    if step_num is None:
+                        step_num = 0
+
+                    emit_trace(
+                        "step",
+                        {
+                            "step": int(step_num),
+                            "thought": thought,
+                            "action": action_desc,
+                        },
+                    )
+                except Exception:
+                    pass
 
             agent = Agent(
                 task=args.task,
                 llm=llm,
                 browser=browser,
                 use_vision=args.use_vision,
+                register_new_step_callback=on_step,
             )
 
-            real_stdout = sys.stdout
+            emit_trace("status", {"message": f"Starting task (max {args.max_steps} steps)..."})
+
+            _real_stdout = sys.stdout
             sys.stdout = sys.stderr
+            try:
+                history = await agent.run(max_steps=args.max_steps)
+                result = history.final_result() or "Done."
+            except Exception as e:
+                sys.stdout = _real_stdout
+                emit_trace("status", {"message": f"Task failed: {e}"})
+                payload = {"final": f"Error: {e}"}
+                print("BETTER_SIRI_FINAL_RESULT: " + json.dumps(payload), flush=True)
+                return 4
+            finally:
+                sys.stdout = _real_stdout
 
-            history = await agent.run(max_steps=args.max_steps)
-            result = history.final_result() or "Done."
+            emit_trace("status", {"message": "Task completed"})
 
-            sys.stdout = real_stdout
             payload = {"final": str(result)}
             print("BETTER_SIRI_FINAL_RESULT: " + json.dumps(payload), flush=True)
             return 0
@@ -123,6 +213,7 @@ actor BrowserUseService {
         cdpURL: String,
         openRouterApiKey: String,
         openRouterModel: String,
+        openRouterReasoningEffort: OpenRouterReasoningEffort,
         maxSteps: Int,
         useVision: Bool
     ) -> AsyncThrowingStream<String, Error> {
@@ -160,6 +251,7 @@ actor BrowserUseService {
                             runnerPath: runnerURL.path,
                             task: task,
                             model: openRouterModel,
+                            reasoningEffort: openRouterReasoningEffort,
                             maxSteps: maxSteps,
                             cdpURL: trimmedCDPURL,
                             useVision: useVision
@@ -172,6 +264,7 @@ actor BrowserUseService {
                                 runnerPath: runnerURL.path,
                                 task: task,
                                 model: openRouterModel,
+                                reasoningEffort: openRouterReasoningEffort,
                                 maxSteps: maxSteps,
                                 cdpURL: trimmedCDPURL,
                                 useVision: useVision
@@ -262,11 +355,17 @@ actor BrowserUseService {
         runnerPath: String,
         task: String,
         model: String,
+        reasoningEffort: OpenRouterReasoningEffort,
         maxSteps: Int,
         cdpURL: String,
         useVision: Bool
     ) -> [String] {
-        [
+        let effortArgs: [String] = {
+            guard let effort = reasoningEffort.openRouterEffort else { return [] }
+            return ["--reasoning-effort", effort]
+        }()
+
+        return [
             "-u",
             runnerPath,
             "--task",
@@ -275,10 +374,13 @@ actor BrowserUseService {
             model,
             "--cdp-url",
             cdpURL,
-            "--max-steps",
-            String(maxSteps),
-            useVision ? "--use-vision" : "--no-use-vision",
         ]
+            + effortArgs
+            + [
+                "--max-steps",
+                String(maxSteps),
+                useVision ? "--use-vision" : "--no-use-vision",
+            ]
     }
 }
 

@@ -1,16 +1,71 @@
 import KeyboardShortcuts
 import SwiftUI
 
+enum BrowserType: String, CaseIterable, Identifiable {
+    case chrome = "chrome"
+    case arc = "arc"
+    case edge = "edge"
+    case brave = "brave"
+    case chromium = "chromium"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .chrome: return "Google Chrome"
+        case .arc: return "Arc"
+        case .edge: return "Microsoft Edge"
+        case .brave: return "Brave"
+        case .chromium: return "Chromium"
+        }
+    }
+
+    var defaultExecutablePath: String {
+        switch self {
+        case .chrome:
+            return "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+        case .arc:
+            return "/Applications/Arc.app/Contents/MacOS/Arc"
+        case .edge:
+            return "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"
+        case .brave:
+            return "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser"
+        case .chromium:
+            return "/Applications/Chromium.app/Contents/MacOS/Chromium"
+        }
+    }
+
+    var defaultUserDataDir: String {
+        switch self {
+        case .chrome:
+            return "~/Library/Application Support/BetterSiri/Chrome"
+        case .arc:
+            return "~/Library/Application Support/BetterSiri/Arc"
+        case .edge:
+            return "~/Library/Application Support/BetterSiri/Edge"
+        case .brave:
+            return "~/Library/Application Support/BetterSiri/Brave"
+        case .chromium:
+            return "~/Library/Application Support/BetterSiri/Chromium"
+        }
+    }
+}
+
 struct SettingsView: View {
     @AppStorage("openrouter_apiKey") private var apiKey: String = ""
     @AppStorage("openrouter_model") private var model: String = "google/gemini-3-flash-preview"
+    @AppStorage("openrouter_reasoning_effort") private var reasoningEffortRaw: String = "default"
+    @AppStorage("openrouter_reasoning_effort_custom") private var reasoningEffortCustom: String = ""
     @AppStorage("perplexity_apiKey") private var perplexityApiKey: String = ""
     @AppStorage("appearance_mode") private var appearanceModeRaw: String = AppearanceMode.system
         .rawValue
+    @AppStorage("show_thinking_traces") private var showThinkingTraces: Bool = true
 
     @AppStorage("browseruse_enabled") private var browserUseEnabled: Bool = false
     @AppStorage("browseruse_python") private var browserUsePython: String =
         "~/.bettersiri-browseruse-venv/bin/python"
+    @AppStorage("browseruse_browser_type") private var browserTypeRaw: String = BrowserType.chrome
+        .rawValue
     @AppStorage("browseruse_chrome_executable_path") private var browserUseChromeExecutablePath:
         String =
             "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
@@ -29,10 +84,29 @@ struct SettingsView: View {
 
     @State private var browserWindowStatus: String = ""
 
+    private var browserType: Binding<BrowserType> {
+        Binding(
+            get: { BrowserType(rawValue: browserTypeRaw) ?? .chrome },
+            set: { newType in
+                browserTypeRaw = newType.rawValue
+                // Update paths when browser type changes
+                browserUseChromeExecutablePath = newType.defaultExecutablePath
+                browserUseChromeUserDataDir = newType.defaultUserDataDir
+            }
+        )
+    }
+
     private var appearanceMode: Binding<AppearanceMode> {
         Binding(
             get: { AppearanceMode(rawValue: appearanceModeRaw) ?? .system },
             set: { appearanceModeRaw = $0.rawValue }
+        )
+    }
+
+    private var reasoningEffort: Binding<OpenRouterReasoningEffort> {
+        Binding(
+            get: { OpenRouterReasoningEffort(rawValue: reasoningEffortRaw) ?? .default },
+            set: { reasoningEffortRaw = $0.rawValue }
         )
     }
 
@@ -45,6 +119,8 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+
+                Toggle("Show thinking traces", isOn: $showThinkingTraces)
             }
 
             Section("Hotkey") {
@@ -56,6 +132,16 @@ struct SettingsView: View {
                     .textFieldStyle(.roundedBorder)
 
                 TextField("Model", text: $model)
+                    .textFieldStyle(.roundedBorder)
+
+                Picker("Thinking level", selection: reasoningEffort) {
+                    ForEach(OpenRouterReasoningEffort.allCases) { effort in
+                        Text(effort.label).tag(effort)
+                    }
+                }
+                .pickerStyle(.menu)
+
+                TextField("Thinking level (custom)", text: $reasoningEffortCustom)
                     .textFieldStyle(.roundedBorder)
 
                 Text(
@@ -80,7 +166,14 @@ struct SettingsView: View {
                 Toggle("Enable browser agent", isOn: $browserUseEnabled)
                 Toggle("Auto-detect browser tasks", isOn: $browserUseAutoInvoke)
                 Toggle("Keep browser open between tasks", isOn: $browserUseKeepBrowserOpen)
-                Toggle("Attach to existing Chrome (don’t launch)", isOn: $browserUseAttachOnly)
+                Toggle("Attach to existing browser (don't launch)", isOn: $browserUseAttachOnly)
+
+                Picker("Browser", selection: browserType) {
+                    ForEach(BrowserType.allCases) { type in
+                        Text(type.label).tag(type)
+                    }
+                }
+                .pickerStyle(.menu)
 
                 Stepper(
                     "Remote debugging port: \(browserUseRemoteDebuggingPort)",
@@ -89,8 +182,8 @@ struct SettingsView: View {
                 )
 
                 HStack(spacing: 8) {
-                    Button("Start Browser Window") {
-                        browserWindowStatus = "Starting browser window…"
+                    Button("Open Browser") {
+                        browserWindowStatus = "Starting browser window..."
                         Task {
                             do {
                                 _ = try await ChromeRemoteDebuggingService.shared.ensureAvailable(
@@ -108,8 +201,8 @@ struct SettingsView: View {
                         }
                     }
 
-                    Button("Stop Browser Window") {
-                        browserWindowStatus = "Stopping browser window…"
+                    Button("Stop Browser") {
+                        browserWindowStatus = "Stopping browser window..."
                         Task {
                             await ChromeRemoteDebuggingService.shared.stop()
                             browserWindowStatus = "Browser window stopped."
@@ -126,13 +219,13 @@ struct SettingsView: View {
                 TextField("Python command", text: $browserUsePython)
                     .textFieldStyle(.roundedBorder)
 
-                TextField("Chrome executable path", text: $browserUseChromeExecutablePath)
+                TextField("Browser executable path", text: $browserUseChromeExecutablePath)
                     .textFieldStyle(.roundedBorder)
 
-                TextField("Chrome user data dir", text: $browserUseChromeUserDataDir)
+                TextField("Browser user data dir", text: $browserUseChromeUserDataDir)
                     .textFieldStyle(.roundedBorder)
 
-                TextField("Chrome profile directory", text: $browserUseChromeProfileDirectory)
+                TextField("Browser profile directory", text: $browserUseChromeProfileDirectory)
                     .textFieldStyle(.roundedBorder)
 
                 Stepper("Max steps: \(browserUseMaxSteps)", value: $browserUseMaxSteps, in: 1...200)
@@ -145,13 +238,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
 
                 Text(
-                    "Note: Chrome requires a non-default user data dir for DevTools remote debugging. BetterSiri uses a dedicated automation profile; sign into sites inside that window if needed. If “Keep browser open” is enabled, leave that Chrome window open for future tasks."
-                )
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-                Text(
-                    "To co-navigate: enable “Attach to existing Chrome”, then start it with:\n`\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\" --remote-debugging-port=\(browserUseRemoteDebuggingPort) --user-data-dir=\"\(browserUseChromeUserDataDir)\" --profile-directory=\"\(browserUseChromeProfileDirectory)\"`"
+                    "Note: Chromium-based browsers require a non-default user data dir for DevTools remote debugging. BetterSiri uses a dedicated automation profile; sign into sites inside that window if needed."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -168,7 +255,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 520, height: 560)
+        .frame(width: 520, height: 620)
         .padding()
     }
 }

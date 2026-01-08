@@ -55,6 +55,21 @@ struct OpenRouterRequest: Codable {
     let model: String
     let messages: [OpenRouterMessage]
     let stream: Bool
+    let reasoning: OpenRouterReasoning?
+}
+
+struct OpenRouterReasoning: Codable {
+    let effort: String?
+    let max_tokens: Int?
+    let exclude: Bool?
+    let enabled: Bool?
+
+    init(effort: String? = nil, maxTokens: Int? = nil, exclude: Bool? = nil, enabled: Bool? = nil) {
+        self.effort = effort
+        self.max_tokens = maxTokens
+        self.exclude = exclude
+        self.enabled = enabled
+    }
 }
 
 struct OpenRouterStreamResponse: Codable {
@@ -85,10 +100,21 @@ struct OpenRouterCompletionResponse: Codable {
 actor OpenRouterClient {
     private let baseURL = URL(string: "https://openrouter.ai/api/v1/chat/completions")!
 
+    private func isCancellationError(_ error: Error) -> Bool {
+        if error is CancellationError { return true }
+        if let urlError = error as? URLError, urlError.code == .cancelled { return true }
+
+        let nsError = error as NSError
+        if nsError.domain == NSURLErrorDomain, nsError.code == -999 { return true }
+
+        return false
+    }
+
     func streamCompletion(
         messages: [OpenRouterMessage],
         apiKey: String,
-        model: String
+        model: String,
+        reasoningEffort: OpenRouterReasoningEffort = .default
     ) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
@@ -96,10 +122,23 @@ actor OpenRouterClient {
                     AppLog.shared.log(
                         "OpenRouter request started (model: \(model), messages: \(messages.count))")
 
+                    let reasoning: OpenRouterReasoning? = {
+                        switch reasoningEffort {
+                        case .default:
+                            // Enable reasoning with default config for thinking models
+                            return OpenRouterReasoning(enabled: true)
+                        case .none:
+                            return OpenRouterReasoning(enabled: false)
+                        default:
+                            return OpenRouterReasoning(effort: reasoningEffort.openRouterEffort, enabled: true)
+                        }
+                    }()
+
                     let requestBody = OpenRouterRequest(
                         model: model,
                         messages: messages,
-                        stream: true
+                        stream: true,
+                        reasoning: reasoning
                     )
 
                     var request = URLRequest(url: baseURL)
@@ -147,7 +186,7 @@ actor OpenRouterClient {
                     AppLog.shared.log("OpenRouter stream finished")
 
                 } catch {
-                    if error is CancellationError {
+                    if isCancellationError(error) {
                         continuation.finish()
                         AppLog.shared.log("OpenRouter stream cancelled")
                         return
@@ -166,15 +205,29 @@ actor OpenRouterClient {
     func completion(
         messages: [OpenRouterMessage],
         apiKey: String,
-        model: String
+        model: String,
+        reasoningEffort: OpenRouterReasoningEffort = .default
     ) async throws -> String {
         AppLog.shared.log(
             "OpenRouter completion started (model: \(model), messages: \(messages.count))")
 
+        let reasoning: OpenRouterReasoning? = {
+            switch reasoningEffort {
+            case .default:
+                // Enable reasoning with default config for thinking models
+                return OpenRouterReasoning(enabled: true)
+            case .none:
+                return OpenRouterReasoning(enabled: false)
+            default:
+                return OpenRouterReasoning(effort: reasoningEffort.openRouterEffort, enabled: true)
+            }
+        }()
+
         let requestBody = OpenRouterRequest(
             model: model,
             messages: messages,
-            stream: false
+            stream: false,
+            reasoning: reasoning
         )
 
         var request = URLRequest(url: baseURL)

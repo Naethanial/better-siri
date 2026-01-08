@@ -5,6 +5,8 @@ import SwiftUI
 struct MessageBubbleView: View {
     let message: ChatMessage
 
+    @AppStorage("show_thinking_traces") private var showThinkingTraces: Bool = true
+
     private var isUser: Bool {
         message.role == .user
     }
@@ -15,13 +17,22 @@ struct MessageBubbleView: View {
                 Spacer(minLength: 40)
             }
 
-            if !isUser, let activity = message.assistantActivity {
+            if !isUser, let activity = message.assistantActivity, showThinkingTraces {
                 AssistantActivityView(activity: activity)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
             } else {
+                let displayText: String = {
+                    if !isUser, message.assistantActivity != nil, !showThinkingTraces,
+                        message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    {
+                        return "…"
+                    }
+                    return message.content.isEmpty ? " " : message.content
+                }()
+
                 MessageRichTextView(
-                    text: message.content.isEmpty ? " " : message.content,
+                    text: displayText,
                     foregroundColor: isUser ? .white : .primary
                 )
                 .textSelection(.enabled)
