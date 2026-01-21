@@ -19,6 +19,7 @@ class ChatViewModel: ObservableObject {
     @Published var inputText: String = ""
     @Published var isStreaming: Bool = false
     @Published var hasSentFirstMessage: Bool = false
+    @Published var thinkingTraces: [ThinkingTraceItem] = []
 
     let screenshot: CGImage
     private var cachedScreenshotBase64: String?
@@ -64,28 +65,40 @@ class ChatViewModel: ObservableObject {
         messages.append(assistantMessage)
         let assistantIndex = messages.count - 1
 
+        // Seed transient thinking UI (shown while assistant bubble is still empty)
+        thinkingTraces = makeInitialThinkingTraces(shouldSearchWeb: !perplexityApiKey.isEmpty)
+
         // Start streaming
         isStreaming = true
         AppLog.shared.log("Streaming started")
 
         streamTask = Task {
             do {
+                var didReceiveFirstToken = false
+
                 // Prepare base64 screenshot if not cached
                 if cachedScreenshotBase64 == nil {
+                    updateTrace(.processingScreen, status: .active)
                     cachedScreenshotBase64 = try await openRouterClient.encodeImageToBase64(
                         screenshot)
+                    updateTrace(.processingScreen, status: .done)
+                } else {
+                    updateTrace(.processingScreen, status: .done)
                 }
 
                 // Fetch web search context if Perplexity API key is configured
                 var webContext: String? = nil
                 if !perplexityApiKey.isEmpty {
                     do {
+                        updateTrace(.searchingWeb, status: .active)
                         webContext = try await perplexityService.searchForContext(
                             query: trimmedInput,
                             apiKey: perplexityApiKey
                         )
+                        updateTrace(.searchingWeb, status: .done)
                     } catch {
                         AppLog.shared.log("Perplexity search failed: \(error)", level: .error)
+                        updateTrace(.searchingWeb, status: .failed, detail: "Search failed")
                         // Continue without web context
                     }
                 }
@@ -132,18 +145,31 @@ class ChatViewModel: ObservableObject {
                     model: model
                 )
 
+                updateTrace(.startingResponse, status: .active)
+
                 for try await token in stream {
+                    if !didReceiveFirstToken {
+                        didReceiveFirstToken = true
+                        thinkingTraces.removeAll()
+                    }
                     // Append token to the assistant message
                     messages[assistantIndex].content += token
                 }
 
+                // If the stream produced no output, remove the placeholder message.
+                if messages[assistantIndex].content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    messages.remove(at: assistantIndex)
+                }
+
                 isStreaming = false
+                thinkingTraces.removeAll()
                 AppLog.shared.log("Streaming completed")
 
             } catch {
                 // Update the assistant message with error
                 messages[assistantIndex].content = "Error: \(error.localizedDescription)"
                 isStreaming = false
+                thinkingTraces.removeAll()
                 AppLog.shared.log("Streaming failed: \(error)", level: .error)
             }
         }
@@ -155,6 +181,55 @@ class ChatViewModel: ObservableObject {
         streamTask?.cancel()
         streamTask = nil
         isStreaming = false
+        thinkingTraces.removeAll()
+
+        // If we never received any output, remove the empty assistant placeholder.
+        if let last = messages.last,
+           last.role == .assistant,
+           last.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            messages.removeLast()
+        }
         AppLog.shared.log("Streaming cancelled")
+    }
+
+    private func makeInitialThinkingTraces(shouldSearchWeb: Bool) -> [ThinkingTraceItem] {
+        var items: [ThinkingTraceItem] = [
+            ThinkingTraceItem(
+                id: .processingScreen,
+                title: "Processing screen",
+                detail: nil,
+                status: .active
+            )
+        ]
+
+        if shouldSearchWeb {
+            items.append(
+                ThinkingTraceItem(
+                    id: .searchingWeb,
+                    title: "Searching web",
+                    detail: nil,
+                    status: .pending
+                )
+            )
+        }
+
+        items.append(
+            ThinkingTraceItem(
+                id: .startingResponse,
+                title: "Starting response",
+                detail: nil,
+                status: .pending
+            )
+        )
+
+        return items
+    }
+
+    private func updateTrace(_ id: ThinkingTraceKind, status: ThinkingTraceStatus, detail: String? = nil) {
+        guard let index = thinkingTraces.firstIndex(where: { $0.id == id }) else { return }
+        thinkingTraces[index].status = status
+        if let detail {
+            thinkingTraces[index].detail = detail
+        }
     }
 }

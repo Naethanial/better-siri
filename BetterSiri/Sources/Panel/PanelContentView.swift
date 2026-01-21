@@ -60,6 +60,13 @@ struct PanelContentView: View {
         CGSize(width: targetWidth, height: min(desiredHeight, maxHeight))
     }
 
+    private func shouldShowThinkingRow(for message: ChatMessage) -> Bool {
+        guard viewModel.isStreaming else { return false }
+        guard message.role == .assistant else { return false }
+        guard message.id == viewModel.messages.last?.id else { return false }
+        return message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Messages (only show if there are messages)
@@ -68,8 +75,16 @@ struct PanelContentView: View {
                     ScrollView {
                         VStack(spacing: 12) {
                             ForEach(viewModel.messages) { message in
-                                MessageBubbleView(message: message)
+                                if shouldShowThinkingRow(for: message) {
+                                    HStack {
+                                        ThinkingTracesView(traces: viewModel.thinkingTraces)
+                                        Spacer(minLength: 40)
+                                    }
                                     .id(message.id)
+                                } else {
+                                    MessageBubbleView(message: message)
+                                        .id(message.id)
+                                }
                             }
                         }
                         .padding(.horizontal, 12)
