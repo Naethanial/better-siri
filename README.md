@@ -9,7 +9,8 @@ A macOS AI assistant that captures your screen and answers questions about what 
 - **Floating Glass Panel**: Beautiful Liquid Glass UI (macOS 26) that stays on top
 - **Streaming Responses**: Real-time AI responses via OpenRouter
 - **Multi-line Input**: Auto-expanding input field (up to 3 lines)
-- **Configurable**: Change hotkey, model, and API key in Settings
+- **Configurable**: Change hotkey and API keys in Settings
+- **Browser Automation (Experimental)**: Optional Browser Use integration for autonomous Chrome control
 
 ## Requirements
 
@@ -41,8 +42,9 @@ open BetterSiri.app
 2. **Open Settings** - Click the menubar icon → Settings (or `⌘ + ,`)
 3. **Configure**:
    - Enter your **OpenRouter API key**
-   - Choose a **model** (default: `anthropic/claude-sonnet-4`)
+   - Model is fixed to **`google/gemini-3-flash-preview`**
    - Optionally change the **hotkey**
+   - (Optional) Add a **Browser Use API key** to enable browser automation
 4. **Grant Screen Recording Permission** - Press `⌘ + .` and follow the prompt
 
 ## Usage
@@ -68,6 +70,32 @@ The panel:
 - Auto-expands as content grows
 - Clicking outside does NOT close it
 
+## Browser Automation (Experimental)
+
+Better Siri can optionally run autonomous browser tasks using the open-source `browser-use` library.
+
+Setup (local dev):
+
+```bash
+python3 -m venv .venv-browser-agent
+source .venv-browser-agent/bin/activate
+pip install -U browser-use
+browser-use install
+```
+
+Then:
+
+- Settings → Browser Use → set your API key
+- Settings → Browser Use → set "Browser agent Python" to `.venv-browser-agent/bin/python`
+- Toggle `Browser` in the assistant panel before sending a prompt
+
+## Gemini Tools
+
+Since the app is pinned to `google/gemini-3-flash-preview`, you can optionally enable Gemini-native tools in Settings:
+
+- URL context (lets Gemini fetch and read URLs you mention)
+- Code execution (lets Gemini run code to verify calculations)
+
 ## Project Structure
 
 ```
@@ -90,10 +118,9 @@ The panel:
 
 Any vision-capable model on OpenRouter works. Some examples:
 
-- `anthropic/claude-sonnet-4` (default)
-- `openai/gpt-4o`
-- `google/gemini-2.0-flash-exp`
-- `anthropic/claude-3.5-sonnet`
+This app is currently pinned to:
+
+- `google/gemini-3-flash-preview`
 
 ## Troubleshooting
 

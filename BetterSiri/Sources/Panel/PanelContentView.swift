@@ -60,11 +60,10 @@ struct PanelContentView: View {
         CGSize(width: targetWidth, height: min(desiredHeight, maxHeight))
     }
 
-    private func shouldShowThinkingRow(for message: ChatMessage) -> Bool {
+    private func isStreamingAssistantMessage(_ message: ChatMessage) -> Bool {
         guard viewModel.isStreaming else { return false }
         guard message.role == .assistant else { return false }
-        guard message.id == viewModel.messages.last?.id else { return false }
-        return message.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return message.id == viewModel.messages.last?.id
     }
 
     var body: some View {
@@ -75,14 +74,35 @@ struct PanelContentView: View {
                     ScrollView {
                         VStack(spacing: 12) {
                             ForEach(viewModel.messages) { message in
-                                if shouldShowThinkingRow(for: message) {
+                                if isStreamingAssistantMessage(message),
+                                   (!viewModel.thinkingTraces.isEmpty || viewModel.activeOperation == .browser) {
                                     HStack {
-                                        ThinkingTracesView(traces: viewModel.thinkingTraces)
+                                        VStack(alignment: .leading, spacing: 10) {
+                                            if !viewModel.thinkingTraces.isEmpty {
+                                                ThinkingTracesView(traces: viewModel.thinkingTraces)
+                                            }
+
+                                            if viewModel.activeOperation == .browser {
+                                                BrowserActivityView(
+                                                    items: viewModel.browserActivityItems,
+                                                    latestScreenshotURL: viewModel.browserLatestScreenshotURL,
+                                                    isPaused: viewModel.isBrowserPaused
+                                                )
+                                            }
+
+                                            MessageBubbleView(
+                                                message: message,
+                                                isStreamingThisMessage: isStreamingAssistantMessage(message)
+                                            )
+                                        }
                                         Spacer(minLength: 40)
                                     }
                                     .id(message.id)
                                 } else {
-                                    MessageBubbleView(message: message)
+                                    MessageBubbleView(
+                                        message: message,
+                                        isStreamingThisMessage: isStreamingAssistantMessage(message)
+                                    )
                                         .id(message.id)
                                 }
                             }
@@ -116,7 +136,11 @@ struct PanelContentView: View {
             // Input area
             ChatInputView(
                 text: $viewModel.inputText,
+                isBrowserModeEnabled: $viewModel.isBrowserModeEnabled,
                 isStreaming: viewModel.isStreaming,
+                onStop: {
+                    viewModel.cancelStreaming()
+                },
                 onSubmit: {
                     viewModel.sendMessage()
                 },

@@ -15,9 +15,15 @@ swift build -c release
 mkdir -p ../BetterSiri.app/Contents/MacOS
 mkdir -p ../BetterSiri.app/Contents/Resources
 
+# Copy Info.plist
+cp Sources/Resources/Info.plist ../BetterSiri.app/Contents/Info.plist
+
 # Copy binary
 cp .build/release/BetterSiri ../BetterSiri.app/Contents/MacOS/BetterSiri
 chmod +x ../BetterSiri.app/Contents/MacOS/BetterSiri
+
+# Copy SwiftPM resource bundles (BetterSiri + dependencies)
+cp -R .build/release/*.bundle ../BetterSiri.app/Contents/Resources/ 2>/dev/null || true
 
 echo "Build complete!"
 echo ""

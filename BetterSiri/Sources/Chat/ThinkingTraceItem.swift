@@ -10,7 +10,10 @@ enum ThinkingTraceStatus: String, Equatable {
 enum ThinkingTraceKind: String, Identifiable, Equatable {
     case processingScreen
     case searchingWeb
+    case openingBrowser
+    case browsing
     case startingResponse
+    case modelReasoning
 
     var id: String { rawValue }
 }

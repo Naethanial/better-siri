@@ -3,7 +3,9 @@ import SwiftUI
 
 struct ChatInputView: View {
     @Binding var text: String
+    @Binding var isBrowserModeEnabled: Bool
     let isStreaming: Bool
+    let onStop: () -> Void
     let onSubmit: () -> Bool
     let onHeightChange: (CGFloat) -> Void
 
@@ -15,9 +17,15 @@ struct ChatInputView: View {
     private let minHeight: CGFloat = 22
     private let maxHeight: CGFloat = 66  // ~3 lines
     private let verticalPadding: CGFloat = 11
+    private let trailingControlWidth: CGFloat = 34
+    private let trailingControlInset: CGFloat = 10
 
     private var totalHeight: CGFloat {
         min(max(textHeight, minHeight), maxHeight) + (verticalPadding * 2)
+    }
+
+    private var clampedTextHeight: CGFloat {
+        min(max(textHeight, minHeight), maxHeight)
     }
 
     private var isActive: Bool {
@@ -40,8 +48,9 @@ struct ChatInputView: View {
             }
         )
         .blendMode(.difference)
-        .frame(height: min(max(textHeight, minHeight), maxHeight))
-        .padding(.horizontal, 12)
+        .frame(height: clampedTextHeight)
+        .padding(.leading, 12)
+        .padding(.trailing, 12 + trailingControlWidth + trailingControlInset)
         .padding(.vertical, verticalPadding)
         .background(
             ZStack {
@@ -54,6 +63,78 @@ struct ChatInputView: View {
                 GlassInputBackground(cornerRadius: 12, isActive: isActive)
             }
         )
+        .overlay(alignment: .trailing) {
+            trailingControl
+                .padding(.trailing, trailingControlInset)
+        }
+    }
+
+    @ViewBuilder
+    private var trailingControl: some View {
+        if isStreaming {
+            StopControlButton(action: onStop)
+        } else {
+            BrowserToggleButton(isOn: $isBrowserModeEnabled)
+        }
+    }
+}
+
+private struct BrowserToggleButton: View {
+    @Binding var isOn: Bool
+
+    var body: some View {
+        Button {
+            withAnimation(.easeOut(duration: 0.12)) {
+                isOn.toggle()
+            }
+        } label: {
+            ZStack {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        Circle().fill(isOn ? Color.blue.opacity(0.16) : Color.clear)
+                    )
+                    .overlay(
+                        Circle().strokeBorder(
+                            isOn ? Color.blue.opacity(0.55) : Color.white.opacity(0.14),
+                            lineWidth: 0.8
+                        )
+                    )
+
+                Image(systemName: "safari")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(isOn ? .white : .secondary)
+            }
+            .frame(width: 34, height: 34)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Browser")
+        .accessibilityHint(isOn ? "On" : "Off")
+    }
+}
+
+private struct StopControlButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            ZStack {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        Circle().fill(Color.red.opacity(0.18))
+                    )
+                    .overlay(
+                        Circle().strokeBorder(Color.red.opacity(0.60), lineWidth: 0.8)
+                    )
+                Image(systemName: "stop.fill")
+                    .font(.system(size: 12, weight: .black))
+                    .foregroundStyle(.white)
+            }
+            .frame(width: 34, height: 34)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Stop")
     }
 }
 

@@ -76,10 +76,23 @@ struct ThinkingTracesView: View {
                     .font(.caption)
                     .foregroundStyle(trace.status == .failed ? .red : .primary)
                 if let detail = trace.detail, !detail.isEmpty {
-                    Text(detail)
+                    if trace.id == .modelReasoning {
+                        StreamingCharacterTextView(
+                            text: detail,
+                            perCharacterDelay: 0.006,
+                            maxRevealDurationPerUpdate: 0.30,
+                            initialBlur: 9,
+                            characterFadeDuration: 0.18
+                        )
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                        .lineLimit(2)
+                    } else {
+                        Text(detail)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                            .textSelection(.enabled)
+                    }
                 }
             }
             Spacer(minLength: 0)
