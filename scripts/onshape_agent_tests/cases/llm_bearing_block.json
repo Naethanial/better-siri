@@ -1,0 +1,14 @@
+{
+  "id": "llm_bearing_block",
+  "kind": "llm",
+  "prompt": "Create a simple bearing block: base 90 mm x 50 mm x 12 mm. Add a central through-hole for a shaft: diameter 20 mm (REMOVE THROUGH_ALL). Add 4 mounting holes: diameter 6 mm at x=±30 mm, y=±15 mm. Add 2 side ears: rectangles 20 mm x 50 mm extruded up 25 mm on both ends (ADD). Use explicit units and validate with onshape_snapshot_partstudio.",
+  "checks": {
+    "require_volume_positive": true,
+    "delta_volume_m3": [1e-8, 1e-1],
+    "bbox_mm": {
+      "x": [80, 140],
+      "y": [40, 90],
+      "z": [10, 60]
+    }
+  }
+}

@@ -4,6 +4,7 @@ import Foundation
 
 struct MenuBarView: View {
     @EnvironmentObject var coordinator: AppCoordinator
+    @Environment(\.openWindow) private var openWindow
 
     private struct ChatSessionGroup: Identifiable {
         let id: Date
@@ -48,9 +49,12 @@ struct MenuBarView: View {
 
         Divider()
 
-        SettingsLink {
-            Text("Settings...")
+        Button("Settings...") {
+            AppLog.shared.log("Settings window requested")
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            openWindow(id: "settings")
         }
+        .keyboardShortcut(",", modifiers: .command)
 
         Menu("Conversations") {
             if coordinator.chatSessions.isEmpty {

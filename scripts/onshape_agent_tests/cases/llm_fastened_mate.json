@@ -1,0 +1,8 @@
+{
+  "id": "llm_fastened_mate",
+  "kind": "llm",
+  "prompt": "Create a simple fastened assembly: \n1) In a new Part Studio 'Peg', create a cylinder (radius 5mm, depth 20mm).\n2) In a new Part Studio 'Base', create a 50mm cube with a 5mm radius through-hole in the center.\n3) Create an Assembly 'Final'.\n4) Insert 'Peg' and 'Base'.\n5) Use onshape_add_mate to fasten the Peg into the hole. \nUse explicit mm units. Switch elements explicitly with onshape_switch_to_element.",
+  "checks": {
+    "require_volume_positive": true
+  }
+}

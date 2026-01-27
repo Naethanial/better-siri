@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftUI
 import KeyboardShortcuts
 
 struct SettingsView: View {
@@ -8,6 +9,19 @@ struct SettingsView: View {
     @AppStorage("browser_use_apiKey") private var browserUseApiKey: String = ""
     @AppStorage("browser_agent_pythonPath") private var browserAgentPythonPath: String = ""
     @AppStorage("browser_agent_keepSession") private var browserAgentKeepSession: Bool = true
+
+    @AppStorage("onshape_enabled") private var onshapeEnabled: Bool = true
+    @AppStorage("onshape_apiKey") private var onshapeApiKey: String = ""
+    @AppStorage("onshape_secretKey") private var onshapeSecretKey: String = ""
+    @AppStorage("onshape_baseUrl") private var onshapeBaseUrl: String = "https://cad.onshape.com/api"
+    @AppStorage("onshape_apiVersion") private var onshapeApiVersion: String = "v13"
+    @AppStorage("onshape_agent_pythonPath") private var onshapeAgentPythonPath: String = ""
+
+    @AppStorage("onshape_oauthClientId") private var onshapeOauthClientId: String = ""
+    @AppStorage("onshape_oauthClientSecret") private var onshapeOauthClientSecret: String = ""
+    @AppStorage("onshape_oauthBaseUrl") private var onshapeOauthBaseUrl: String = "https://oauth.onshape.com"
+    @AppStorage("onshape_oauthRedirectPort") private var onshapeOauthRedirectPort: Int = 5000
+
     @AppStorage("perplexity_apiKey") private var perplexityApiKey: String = ""
     @AppStorage("appearance_mode") private var appearanceModeRaw: String = AppearanceMode.system.rawValue
     @AppStorage("gemini_enableUrlContext") private var geminiEnableUrlContext: Bool = true
@@ -21,7 +35,7 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        Form {
+        List {
             Section("Appearance") {
                 Picker("Mode", selection: appearanceMode) {
                     ForEach(AppearanceMode.allCases) { mode in
@@ -113,6 +127,99 @@ struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+
+            Section("OnShape") {
+                Toggle("Enable OnShape", isOn: $onshapeEnabled)
+
+                SecureField("Access Key", text: $onshapeApiKey)
+                    .textFieldStyle(.roundedBorder)
+
+                SecureField("Secret Key", text: $onshapeSecretKey)
+                    .textFieldStyle(.roundedBorder)
+
+                TextField("Base URL", text: $onshapeBaseUrl)
+                    .textFieldStyle(.roundedBorder)
+
+                TextField("API Version", text: $onshapeApiVersion)
+                    .textFieldStyle(.roundedBorder)
+
+                TextField("OnShape agent Python", text: $onshapeAgentPythonPath)
+                    .textFieldStyle(.roundedBorder)
+
+                Divider()
+
+                TextField("OAuth Base URL", text: $onshapeOauthBaseUrl)
+                    .textFieldStyle(.roundedBorder)
+
+                SecureField("OAuth Client ID", text: $onshapeOauthClientId)
+                    .textFieldStyle(.roundedBorder)
+
+                SecureField("OAuth Client Secret", text: $onshapeOauthClientSecret)
+                    .textFieldStyle(.roundedBorder)
+
+                Stepper("OAuth Redirect Port: \(onshapeOauthRedirectPort)", value: $onshapeOauthRedirectPort, in: 1024...65535)
+
+                Button("Authorize OnShape (OAuth)") {
+                    Task {
+                        do {
+                            let tokenFileURL = OnShapeOAuthService.defaultTokenFileURL()
+                            try await OnShapeOAuthService.shared.authorize(
+                                oauthBaseURL: onshapeOauthBaseUrl,
+                                clientId: onshapeOauthClientId,
+                                clientSecret: onshapeOauthClientSecret,
+                                redirectPort: onshapeOauthRedirectPort,
+                                scopes: ["OAuth2Read", "OAuth2Write"],
+                                tokenFileURL: tokenFileURL
+                            )
+                        } catch {
+                            AppLog.shared.log("OnShape OAuth failed: \(error)", level: .error)
+                        }
+                    }
+                }
+
+                Button(role: .destructive) {
+                    Task {
+                        do {
+                            try await OnShapeOAuthService.shared.clearTokenFile()
+                        } catch {
+                            AppLog.shared.log("Clear OnShape OAuth token failed: \(error)", level: .error)
+                        }
+                    }
+                } label: {
+                    Text("Clear OAuth Token")
+                }
+
+                Button("Ping OnShape Agent") {
+                    Task {
+                        do {
+                            try await OnShapeMcpWorker.shared.startIfNeeded(
+                                accessKey: onshapeApiKey,
+                                secretKey: onshapeSecretKey,
+                                baseURL: onshapeBaseUrl,
+                                apiVersion: onshapeApiVersion,
+                                pythonPath: onshapeAgentPythonPath,
+                                oauthClientId: onshapeOauthClientId,
+                                oauthClientSecret: onshapeOauthClientSecret,
+                                oauthBaseURL: onshapeOauthBaseUrl,
+                                oauthTokenFilePath: OnShapeOAuthService.defaultTokenFileURL().path
+                            )
+                            try await OnShapeMcpWorker.shared.ping()
+                        } catch {
+                            AppLog.shared.log("OnShape agent ping failed: \(error)", level: .error)
+                        }
+                    }
+                }
+
+                Button("Stop OnShape Agent") {
+                    Task {
+                        await OnShapeMcpWorker.shared.stopProcess()
+                    }
+                }
+
+                Text("If API keys are disabled (common for EDU accounts), use OAuth instead. For your district stack, Base URL should be like https://cteinccsd.onshape.com/api. OAuth Base URL may need to be https://cteinccsd.onshape.com (or https://oauth.onshape.com depending on your tenant).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
             
             Section("Perplexity (Web Search)") {
                 SecureField("API Key", text: $perplexityApiKey)
@@ -131,7 +238,7 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .formStyle(.grouped)
+        .listStyle(.inset)
         .frame(width: 520, height: 520)
         .padding()
     }

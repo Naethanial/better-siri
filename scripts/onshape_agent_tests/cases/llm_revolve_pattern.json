@@ -1,0 +1,8 @@
+{
+  "id": "llm_revolve_pattern",
+  "kind": "llm",
+  "prompt": "Create a circular pattern of revolved features: \n1) In a new Part Studio, create a small rectangle (5mm x 10mm) on the Right plane (YZ plane), offset from the Y-axis by 20mm in Z (e.g., Z from 20 to 25, Y from 0 to 10).\n2) Revolve this rectangle 360 degrees around the Y-axis to create a solid ring.\n3) Create a circular pattern of this ring (4 instances around the Y-axis).\nUse explicit mm units.",
+  "checks": {
+    "require_volume_positive": true
+  }
+}

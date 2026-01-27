@@ -1,0 +1,14 @@
+{
+  "id": "llm_flanged_plate",
+  "kind": "llm",
+  "prompt": "Create a flange plate: main plate 140 mm x 140 mm x 10 mm. Since the tools don't support sketch-plane offsets, make the plate centered about the Top plane: sketch the 140x140 rectangle on Top and use cad_extrude with direction=SYMMETRIC and depth='5 mm' so total thickness is 10 mm.\n\nAdd a raised central boss: cylinder radius 25 mm, height 15 mm, merged (operation ADD) centered at origin on Top plane.\n\nAdd 8 bolt holes: diameter 10 mm on a bolt circle radius 55 mm (evenly spaced). Use a separate hole sketch and REMOVE THROUGH_ALL. Validate with onshape_snapshot_partstudio.",
+  "checks": {
+    "require_volume_positive": true,
+    "delta_volume_m3": [1e-8, 1e-1],
+    "bbox_mm": {
+      "x": [120, 180],
+      "y": [120, 180],
+      "z": [18, 35]
+    }
+  }
+}

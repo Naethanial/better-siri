@@ -1,0 +1,9 @@
+{
+  "id": "llm_unit_sanity_100mm_cube",
+  "kind": "llm",
+  "prompt": "Create a single cube with side length 100 mm using cad_create_cube. Use explicit units. Then call onshape_snapshot_partstudio.",
+  "checks": {
+    "require_volume_positive": true,
+    "delta_volume_m3": [0.0009, 0.0011]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "llm_parametric_wrench",
+  "kind": "llm",
+  "prompt": "Model a simple open-end wrench as a competent parametric part. Use the Top plane for the outline (XY) and extrude thickness along +Z.\n\nTarget dimensions: handle 160 mm long (X direction), 18 mm wide (Y), 6 mm thick (Z). Head outer diameter ~36 mm located at the +X end. Jaw opening 14 mm, jaw depth 12 mm.\n\nBuild: 1) sketch handle+head outer outline on Top and extrude 6 mm (NEW). 2) sketch jaw cut on Top and REMOVE THROUGH_ALL. Validate with onshape_snapshot_partstudio and ensure bbox is roughly x~160mm, y~36mm, z~6mm.",
+  "checks": {
+    "require_volume_positive": true,
+    "delta_volume_m3": [1e-8, 1e-1],
+    "bbox_mm": {
+      "x": [120, 220],
+      "y": [20, 80],
+      "z": [4, 40]
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "llm_pulley_like",
+  "kind": "llm",
+  "prompt": "Create a simple pulley-like part without revolves: start with a cylinder (radius 30 mm, depth 20 mm). Then create two larger flanges by sketching circles radius 38 mm and extruding ADD 4 mm on both ends (use two extrudes located by sketch plane offsets if needed, or approximate with a single thicker flange). Cut a center bore diameter 10 mm THROUGH_ALL. Validate with onshape_snapshot_partstudio.",
+  "checks": {
+    "require_volume_positive": true,
+    "delta_volume_m3": [1e-8, 1e-1],
+    "bbox_mm": {
+      "x": [50, 90],
+      "y": [50, 90],
+      "z": [18, 40]
+    }
+  }
+}

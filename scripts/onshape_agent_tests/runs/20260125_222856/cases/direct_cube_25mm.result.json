@@ -1,0 +1,256 @@
+{
+  "case_id": "direct_cube_25mm",
+  "kind": "direct",
+  "ok": true,
+  "error": null,
+  "tool_errors": 0,
+  "tool_calls": 1,
+  "snapshot": {
+    "did": "89a3e2e598f9ad2ace0fb496",
+    "wvm": "w",
+    "wvmid": "8c522fba543883263f4d1645",
+    "eid": "466338a94d244e8b3d9ca656",
+    "bounding_boxes": {
+      "lowZ": -0.0381,
+      "highX": 0.0381,
+      "highY": 0.0381,
+      "highZ": 0.0381,
+      "lowX": -0.0381,
+      "lowY": -0.0381
+    },
+    "mass_properties": {
+      "microversionId": "4f2846f2f5a5c26e50da574c",
+      "bodies": {
+        "-all-": {
+          "mass": [
+            0.0,
+            -3.9397891448021466e-09,
+            3.9397891448021466e-09
+          ],
+          "volume": [
+            0.00024729165944337595,
+            0.0002472877196542311,
+            0.0002472955992325208
+          ],
+          "periphery": [
+            0.02199146924750992,
+            0.021991406479770235,
+            0.0219915320152496
+          ],
+          "centroid": [
+            0.0,
+            0.0,
+            0.0,
+            -1e-06,
+            -1e-06,
+            -1e-06,
+            1e-06,
+            1e-06,
+            1e-06
+          ],
+          "inertia": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -2.4729165944337593e-10,
+            -2.4729165944337593e-10,
+            -2.4729165944337593e-10,
+            -2.4729165944337593e-10,
+            -2.4729165944337593e-10,
+            -2.4729165944337593e-10,
+            -2.4729165944337593e-10,
+            -2.4729165944337593e-10,
+            -2.4729165944337593e-10,
+            2.4729165944337593e-10,
+            2.4729165944337593e-10,
+            2.4729165944337593e-10,
+            2.4729165944337593e-10,
+            2.4729165944337593e-10,
+            2.4729165944337593e-10,
+            2.4729165944337593e-10,
+            2.4729165944337593e-10,
+            2.4729165944337593e-10
+          ],
+          "hasMass": false,
+          "massMissingCount": 2,
+          "principalInertia": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "principalAxes": [
+            {
+              "btType": "BTVector3d-389",
+              "y": 0.0,
+              "x": 1.0,
+              "z": 0.0
+            },
+            {
+              "btType": "BTVector3d-389",
+              "y": 1.0,
+              "x": 0.0,
+              "z": 0.0
+            },
+            {
+              "btType": "BTVector3d-389",
+              "y": 0.0,
+              "x": 0.0,
+              "z": 1.0
+            }
+          ]
+        }
+      }
+    },
+    "gltf": {
+      "path": "/var/folders/jp/k76bwhg92qvbr206nhqjmsnw0000gp/T/bettersiri_onshape_7a97e721b5bd465cafd1d3748b69ad6e.glb",
+      "bytes": 94380
+    }
+  },
+  "bbox_mm": {
+    "x": 76.2,
+    "y": 76.2,
+    "z": 76.2,
+    "lowX": -38.1,
+    "lowY": -38.1,
+    "lowZ": -38.1,
+    "highX": 38.1,
+    "highY": 38.1,
+    "highZ": 38.1
+  },
+  "volume_m3": 0.00024729165944337595,
+  "artifacts": {
+    "gltf": "/Users/superudmarts/Desktop/cluely/scripts/onshape_agent_tests/runs/20260125_222856/artifacts/direct_cube_25mm/bettersiri_onshape_7a97e721b5bd465cafd1d3748b69ad6e.glb"
+  },
+  "transcript": [
+    {
+      "type": "tool_call",
+      "name": "cad_create_cube",
+      "arguments": {
+        "name": "Eval Cube 25mm",
+        "side_length": "25 mm"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_create_cube",
+      "ok": true
+    }
+  ],
+  "baseline_snapshot": {
+    "did": "89a3e2e598f9ad2ace0fb496",
+    "wvm": "w",
+    "wvmid": "8c522fba543883263f4d1645",
+    "eid": "466338a94d244e8b3d9ca656",
+    "bounding_boxes": {
+      "lowZ": -0.0381,
+      "highX": 0.0381,
+      "highY": 0.0381,
+      "highZ": 0.0381,
+      "lowX": -0.0381,
+      "lowY": -0.0381
+    },
+    "mass_properties": {
+      "microversionId": "dc60e5e537c3f35b30bfac5f",
+      "bodies": {
+        "-all-": {
+          "mass": [
+            0.0,
+            -3.7720348008063614e-09,
+            3.7720348008063614e-09
+          ],
+          "volume": [
+            0.00023166665944337596,
+            0.00023166288740857516,
+            0.00023167043147817677
+          ],
+          "periphery": [
+            0.01824146924750992,
+            0.01824140783061647,
+            0.018241530664403368
+          ],
+          "centroid": [
+            0.0,
+            0.0,
+            0.0,
+            -1e-06,
+            -1e-06,
+            -1e-06,
+            1e-06,
+            1e-06,
+            1e-06
+          ],
+          "inertia": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10
+          ],
+          "hasMass": false,
+          "massMissingCount": 1,
+          "principalInertia": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "principalAxes": [
+            {
+              "btType": "BTVector3d-389",
+              "y": 0.0,
+              "x": 1.0,
+              "z": 0.0
+            },
+            {
+              "btType": "BTVector3d-389",
+              "y": 1.0,
+              "x": 0.0,
+              "z": 0.0
+            },
+            {
+              "btType": "BTVector3d-389",
+              "y": 0.0,
+              "x": 0.0,
+              "z": 1.0
+            }
+          ]
+        }
+      }
+    },
+    "gltf": {
+      "path": "/var/folders/jp/k76bwhg92qvbr206nhqjmsnw0000gp/T/bettersiri_onshape_6074faf81f6d4d408cee1c310e35b9af.glb",
+      "bytes": 92572
+    }
+  },
+  "elapsed_s": 2.629861831665039,
+  "new_feature_ids": [
+    "FVTOApGG1huzMoY_1"
+  ]
+}

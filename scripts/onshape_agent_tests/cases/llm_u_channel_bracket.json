@@ -1,0 +1,14 @@
+{
+  "id": "llm_u_channel_bracket",
+  "kind": "llm",
+  "prompt": "Create a U-channel bracket using explicit coordinates on the Top plane (XY) and extrude thickness/height along +Z.\n\nGeometry: base plate 120 mm (X: -60..60) x 40 mm (Y: -20..20) x 4 mm thick -> extrude 4 mm (NEW).\nTwo side walls: each wall footprint is 120 mm long (X: -60..60) and 4 mm thick in Y. Place one at Y: 16..20, the other at Y: -20..-16. Extrude each wall 20 mm high with operation ADD so it merges with the base.\n\nHoles: diameter 6 mm. Base holes at (x=-30 mm,y=0) and (x=30 mm,y=0). Wall holes: on each wall add two holes at x=-20 mm and x=20 mm centered in the wall thickness (y=18 or y=-18) and around mid-height; use separate hole sketches on Top plane and REMOVE THROUGH_ALL (approx is fine).\n\nValidate with onshape_snapshot_partstudio; bbox should be about x~120mm, y~40mm, z~20mm.",
+  "checks": {
+    "require_volume_positive": true,
+    "delta_volume_m3": [1e-8, 1e-1],
+    "bbox_mm": {
+      "x": [100, 150],
+      "y": [35, 70],
+      "z": [18, 40]
+    }
+  }
+}

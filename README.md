@@ -87,7 +87,24 @@ Then:
 
 - Settings → Browser Use → set your API key
 - Settings → Browser Use → set "Browser agent Python" to `.venv-browser-agent/bin/python`
-- Toggle `Browser` in the assistant panel before sending a prompt
+- Toggle `Browser` in the assistant panel to enable browser tools (the model will call `browser_run_task` when it needs to interact with a live page)
+
+## OnShape CAD (Experimental)
+
+Better Siri can optionally connect to OnShape via the OnShape REST API (API keys) using a local MCP stdio server.
+
+Setup (local dev):
+
+- Create OnShape API keys (access key + secret key)
+- Settings → OnShape:
+  - set Access Key + Secret Key
+  - leave Base URL as `https://cad.onshape.com/api` (or your enterprise URL)
+  - leave API Version as `v13` unless you know you need another version
+
+Then:
+
+- Toggle the cube icon (`OnShape`) in the assistant panel
+- Provide an OnShape document/Part Studio URL, and ask it to list elements/features, update variables, or run FeatureScript
 
 ## Gemini Tools
 

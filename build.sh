@@ -25,6 +25,11 @@ chmod +x ../BetterSiri.app/Contents/MacOS/BetterSiri
 # Copy SwiftPM resource bundles (BetterSiri + dependencies)
 cp -R .build/release/*.bundle ../BetterSiri.app/Contents/Resources/ 2>/dev/null || true
 
+# Some SwiftPM-generated bundle accessors look for resource bundles as direct
+# children of the app bundle (Bundle.main.bundleURL/<Name>.bundle).
+# Copy them there as well for compatibility.
+cp -R .build/release/*.bundle ../BetterSiri.app/ 2>/dev/null || true
+
 echo "Build complete!"
 echo ""
 echo "App bundle is at: $(dirname "$0")/BetterSiri.app"

@@ -1,0 +1,230 @@
+{
+  "results": [
+    {
+      "case_id": "llm_loft_plane",
+      "kind": "llm",
+      "ok": false,
+      "error": "Exceeded max_tool_iters=10",
+      "tool_errors": 4,
+      "tool_calls": 11,
+      "snapshot": null,
+      "bbox_mm": null,
+      "volume_m3": null,
+      "artifacts": {},
+      "transcript": [
+        {
+          "type": "attachments",
+          "debug": []
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_partstudio",
+          "arguments": {
+            "name": "Lofted Transition"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_partstudio",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_circle_sketch",
+          "arguments": {
+            "name": "Circle Sketch",
+            "plane": "TOP",
+            "radius": "20 mm",
+            "x_center": "0 mm",
+            "y_center": "0 mm"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_circle_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_plane",
+          "arguments": {
+            "offset": "50 mm",
+            "base_query": "TOP",
+            "name": "Offset Plane"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_plane",
+          "ok": false,
+          "error": "OnShape HTTP 400: {'moreInfoUrl': '', 'message': 'Feature has invalid type', 'status': 400, 'code': 9999}"
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_circle_sketch",
+          "arguments": {
+            "name": "Circle Sketch",
+            "plane": "TOP",
+            "radius": "20 mm",
+            "x_center": "0 mm",
+            "y_center": "0 mm"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_circle_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_plane",
+          "arguments": {
+            "offset": "50 mm",
+            "base_query": "TOP",
+            "name": "Offset Plane"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_plane",
+          "ok": false,
+          "error": "OnShape HTTP 400: {'moreInfoUrl': '', 'message': 'Feature has invalid type', 'status': 400, 'code': 9999}"
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_sketch",
+          "arguments": {
+            "name": "Square Sketch",
+            "plane": "TOP",
+            "rectangles": [
+              {
+                "x1": "-20 mm",
+                "y1": "-20 mm",
+                "x2": "20 mm",
+                "y2": "20 mm"
+              }
+            ]
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Circle Extrude",
+            "sketch_feature_id": "FVWCSLaeqACmlH1_0",
+            "depth": "0 mm",
+            "operation": "NEW",
+            "direction": "NORMAL"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": false,
+          "error": "Extrude depth must be > 0 with explicit units, e.g. '3 mm'."
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Circle Extrude",
+            "sketch_feature_id": "FVWCSLaeqACmlH1_0",
+            "depth": "5 mm",
+            "operation": "NEW",
+            "direction": "NORMAL"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_plane",
+          "arguments": {
+            "offset": "50 mm",
+            "base_query": "TOP",
+            "name": "Offset Plane"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_plane",
+          "ok": false,
+          "error": "OnShape HTTP 400: {'moreInfoUrl': '', 'message': 'Feature has invalid type', 'status': 400, 'code': 9999}"
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_sketch",
+          "arguments": {
+            "name": "Square Sketch",
+            "plane": "TOP",
+            "rectangles": [
+              {
+                "x1": "-20 mm",
+                "y1": "-20 mm",
+                "x2": "20 mm",
+                "y2": "20 mm"
+              }
+            ]
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Square Extrude",
+            "sketch_feature_id": "FqGPDlP9KH6O2u1_1",
+            "depth": "5 mm",
+            "operation": "NEW",
+            "direction": "NORMAL"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": true
+        }
+      ],
+      "baseline_snapshot": {
+        "did": "89a3e2e598f9ad2ace0fb496",
+        "wvm": "w",
+        "wvmid": "8c522fba543883263f4d1645",
+        "eid": "97aaa4e44f3a1b38ade6d64f",
+        "elementType": "PARTSTUDIO",
+        "metadata": {
+          "partCount": 0,
+          "partNames": []
+        },
+        "bounding_boxes": {
+          "lowX": 0.0,
+          "lowY": 0.0,
+          "lowZ": 0.0,
+          "highX": 0.0,
+          "highY": 0.0,
+          "highZ": 0.0
+        },
+        "mass_properties": {
+          "microversionId": "9039fe52fae2aa3a08df63b4",
+          "bodies": {}
+        },
+        "gltf": null,
+        "gltf_error": "OnShape HTTP 400: {\n  \"moreInfoUrl\" : \"\",\n  \"message\" : \"An illegal argument was provided, check your request.\",\n  \"status\" : 400,\n  \"code\" : 0\n}"
+      },
+      "elapsed_s": 37.25962591171265,
+      "new_feature_ids": []
+    }
+  ],
+  "failures": 1
+}

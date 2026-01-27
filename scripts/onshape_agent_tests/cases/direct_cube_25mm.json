@@ -1,0 +1,17 @@
+{
+  "id": "direct_cube_25mm",
+  "kind": "direct",
+  "tool_calls": [
+    {
+      "name": "cad_create_cube",
+      "arguments": {
+        "name": "Eval Cube 25mm",
+        "side_length": "25 mm"
+      }
+    }
+  ],
+  "checks": {
+    "require_volume_positive": true,
+    "delta_volume_m3": [1.0e-05, 2.2e-05]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "llm_box_with_mounts",
+  "kind": "llm",
+  "prompt": "Design a small electronics enclosure as a parametric part: outer box 120 mm x 80 mm x 35 mm with 3 mm wall thickness and an open top. Use a construction that works with the available tools:\n\n1) Create the outer block: sketch rectangle on Top plane with corners (-60 mm,-40 mm) to (60 mm,40 mm), then extrude 35 mm (NEW).\n2) Hollow it to a tube: sketch inner rectangle on Top plane with corners (-57 mm,-37 mm) to (57 mm,37 mm) and REMOVE THROUGH_ALL to create walls.\n3) Add the bottom/floor: sketch the original outer rectangle again on Top plane and extrude 3 mm with operation ADD (this forms the floor while keeping the top open).\n4) Add 4 internal mounting bosses: cylinders radius 4 mm, height 12 mm at (x=±47 mm, y=±27 mm) (10 mm from each inside corner). Use operation ADD so they merge.\n5) Drill boss holes: diameter 3 mm at the same boss centers, REMOVE THROUGH_ALL.\n\nUse explicit mm units and validate with onshape_snapshot_partstudio.",
+  "checks": {
+    "require_volume_positive": true,
+    "delta_volume_m3": [1e-8, 1e-1],
+    "bbox_mm": {
+      "x": [90, 160],
+      "y": [60, 120],
+      "z": [25, 60]
+    }
+  }
+}

@@ -1,0 +1,225 @@
+{
+  "case_id": "llm_revolve_pattern",
+  "kind": "llm",
+  "ok": false,
+  "error": "Exceeded max_tool_iters=10",
+  "tool_errors": 0,
+  "tool_calls": 11,
+  "snapshot": null,
+  "bbox_mm": null,
+  "volume_m3": null,
+  "artifacts": {},
+  "transcript": [
+    {
+      "type": "attachments",
+      "debug": []
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_create_partstudio",
+      "arguments": {
+        "name": "Circular Pattern of Revolved Features"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_create_partstudio",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_create_sketch",
+      "arguments": {
+        "name": "Rectangle Sketch",
+        "plane": "TOP",
+        "rectangles": [
+          {
+            "x1": "20 mm",
+            "y1": "0 mm",
+            "x2": "25 mm",
+            "y2": "10 mm"
+          }
+        ]
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_create_sketch",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_revolve",
+      "arguments": {
+        "sketch_feature_id": "FAG6NLrL2rrvI87_0",
+        "axis_query": "y",
+        "name": "Revolved Ring",
+        "operation": "NEW"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_revolve",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_pattern_circular",
+      "arguments": {
+        "entities_query": "F3oUzDHO2VdT9Vr_0",
+        "axis_query": "y",
+        "angle": "360 deg",
+        "instance_count": 4,
+        "name": "Circular Pattern of Rings"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_pattern_circular",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "onshape_snapshot_partstudio",
+      "arguments": {}
+    },
+    {
+      "type": "tool_result",
+      "name": "onshape_snapshot_partstudio",
+      "ok": true
+    },
+    {
+      "type": "assistant",
+      "content": "The circular pattern of revolved features has been successfully created in the new Part Studio. Here are the steps completed:\n\n1. A rectangle (5 mm x 10 mm) was created and offset from the origin by 20 mm.\n2. This rectangle was revolved 360 degrees around the Y-axis to create a ring.\n3. A circular pattern of this ring was created with 4 instances around the Y-axis.\n\nHowever, the spatial snapshot indicates that the bounding box dimensions are all zero, which suggests that the features may not have been properly defined in the 3D space. \n\nI will verify the dimensions and ensure that the features are correctly positioned. Let's check the parameters and adjust if necessary."
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_create_sketch",
+      "arguments": {
+        "name": "Rectangle Sketch",
+        "plane": "TOP",
+        "rectangles": [
+          {
+            "x1": "20 mm",
+            "y1": "-5 mm",
+            "x2": "25 mm",
+            "y2": "5 mm"
+          }
+        ]
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_create_sketch",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_revolve",
+      "arguments": {
+        "sketch_feature_id": "FAG6NLrL2rrvI87_0",
+        "axis_query": "y",
+        "name": "Revolved Ring",
+        "operation": "NEW"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_revolve",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_pattern_circular",
+      "arguments": {
+        "entities_query": "FPcV9zFqsrFwaDr_0",
+        "axis_query": "y",
+        "angle": "360 deg",
+        "instance_count": 4,
+        "name": "Circular Pattern of Rings"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_pattern_circular",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "onshape_snapshot_partstudio",
+      "arguments": {}
+    },
+    {
+      "type": "tool_result",
+      "name": "onshape_snapshot_partstudio",
+      "ok": true
+    },
+    {
+      "type": "assistant",
+      "content": "The adjustments have been made, and the features were redefined. However, the spatial snapshot still indicates that the bounding box dimensions are all zero, suggesting that the features may not be properly positioned in the 3D space.\n\nIt seems that the revolved feature might not be correctly recognized or created. I will attempt to create the rectangle and revolve it again, ensuring that the dimensions and positions are correct. Let's proceed with that."
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_create_sketch",
+      "arguments": {
+        "name": "Rectangle Sketch",
+        "plane": "TOP",
+        "rectangles": [
+          {
+            "x1": "20 mm",
+            "y1": "-5 mm",
+            "x2": "25 mm",
+            "y2": "5 mm"
+          }
+        ]
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_create_sketch",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_revolve",
+      "arguments": {
+        "sketch_feature_id": "FCDHPhpFft6noXz_0",
+        "axis_query": "y",
+        "name": "Revolved Ring",
+        "operation": "NEW"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_revolve",
+      "ok": true
+    }
+  ],
+  "baseline_snapshot": {
+    "did": "89a3e2e598f9ad2ace0fb496",
+    "wvm": "w",
+    "wvmid": "8c522fba543883263f4d1645",
+    "eid": "bdb60a9a657b4bd8a88fae78",
+    "elementType": "PARTSTUDIO",
+    "metadata": {
+      "partCount": 0,
+      "partNames": []
+    },
+    "bounding_boxes": {
+      "highZ": 0.0,
+      "lowX": 0.0,
+      "lowY": 0.0,
+      "lowZ": 0.0,
+      "highX": 0.0,
+      "highY": 0.0
+    },
+    "mass_properties": {
+      "microversionId": "204cc3aeb3e628dfd292cc65",
+      "bodies": {}
+    },
+    "gltf": null,
+    "gltf_error": "OnShape HTTP 400: {\n  \"moreInfoUrl\" : \"\",\n  \"message\" : \"An illegal argument was provided, check your request.\",\n  \"status\" : 400,\n  \"code\" : 0\n}"
+  },
+  "elapsed_s": 47.75412392616272,
+  "new_feature_ids": []
+}

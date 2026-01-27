@@ -1,0 +1,14 @@
+{
+  "id": "llm_fixture_plate_grid",
+  "kind": "llm",
+  "prompt": "Create a fixture plate: 200 mm x 120 mm x 12 mm. Add a 5x3 grid of through-holes diameter 8 mm with 40 mm spacing, centered on the plate. Also add 4 corner holes diameter 10 mm, offset 15 mm from each edge. Use explicit units, separate hole sketches as needed, and validate with onshape_snapshot_partstudio.",
+  "checks": {
+    "require_volume_positive": true,
+    "delta_volume_m3": [1e-8, 1e-1],
+    "bbox_mm": {
+      "x": [170, 240],
+      "y": [90, 160],
+      "z": [8, 30]
+    }
+  }
+}

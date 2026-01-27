@@ -1,0 +1,17 @@
+{
+  "id": "llm_vex_bracket_from_pdf",
+  "kind": "llm",
+  "attachments": [
+    "Vex Machine Assembly 1 Drawing.pdf"
+  ],
+  "prompt": "Use the attached drawing to model the main L-bracket/plate as a simple, competent parametric part. Ignore tiny fasteners/gear teeth; focus on the bracket and its major holes. Use explicit mm units.\n\nIf the drawing is too ambiguous to measure: assume common VEX plate standards as a fallback (do NOT stop): thickness 3.175 mm (1/8 in), hole diameter 5.0 mm, hole spacing 12.7 mm (0.5 in).\n\nFallback starting geometry (make this first, then adjust if the drawing contradicts it):\n1) Base plate: rectangle 150 mm x 80 mm centered at origin (x from -75 mm to 75 mm, y from -40 mm to 40 mm) extruded 3.175 mm (NEW).\n2) Vertical plate: sketch on Front plane a rectangle 150 mm (x -75..75) by 60 mm (y 0..60) and extrude thickness 3.175 mm (ADD) to form an L shape.\n3) Holes: create separate hole sketches and do REMOVE THROUGH_ALL. Put a simple 4x2 hole grid on the base plate: x = [-38.1, -12.7, 12.7, 38.1] mm, y = [-12.7, 12.7] mm, radius 2.5 mm.\n\nValidate with onshape_snapshot_partstudio and iterate if the model is obviously the wrong scale.",
+  "checks": {
+    "require_volume_positive": true,
+    "delta_volume_m3": [1e-8, 1e-1],
+    "bbox_mm": {
+      "x": [30, 400],
+      "y": [30, 400],
+      "z": [2, 200]
+    }
+  }
+}

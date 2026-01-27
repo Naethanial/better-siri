@@ -1,0 +1,375 @@
+{
+  "results": [
+    {
+      "case_id": "direct_cube_25mm",
+      "kind": "direct",
+      "ok": false,
+      "error": "bbox_x_out_of_range:76.20 not in [20.00,30.00];bbox_y_out_of_range:76.20 not in [20.00,30.00];bbox_z_out_of_range:76.20 not in [20.00,30.00]",
+      "tool_errors": 0,
+      "tool_calls": 1,
+      "snapshot": {
+        "did": "89a3e2e598f9ad2ace0fb496",
+        "wvm": "w",
+        "wvmid": "8c522fba543883263f4d1645",
+        "eid": "466338a94d244e8b3d9ca656",
+        "bounding_boxes": {
+          "lowX": -0.0381,
+          "lowY": -0.0381,
+          "lowZ": -0.0381,
+          "highX": 0.0381,
+          "highY": 0.0381,
+          "highZ": 0.0381
+        },
+        "mass_properties": {
+          "microversionId": "e9873b6666ba992f4dd33fa2",
+          "bodies": {
+            "-all-": {
+              "mass": [
+                0.0,
+                -3.9397891448021466e-09,
+                3.9397891448021466e-09
+              ],
+              "volume": [
+                0.00024729165944337595,
+                0.0002472877196542311,
+                0.0002472955992325208
+              ],
+              "periphery": [
+                0.02199146924750992,
+                0.021991406479770235,
+                0.0219915320152496
+              ],
+              "centroid": [
+                0.0,
+                0.0,
+                0.0,
+                -1e-06,
+                -1e-06,
+                -1e-06,
+                1e-06,
+                1e-06,
+                1e-06
+              ],
+              "inertia": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                -2.4729165944337593e-10,
+                -2.4729165944337593e-10,
+                -2.4729165944337593e-10,
+                -2.4729165944337593e-10,
+                -2.4729165944337593e-10,
+                -2.4729165944337593e-10,
+                -2.4729165944337593e-10,
+                -2.4729165944337593e-10,
+                -2.4729165944337593e-10,
+                2.4729165944337593e-10,
+                2.4729165944337593e-10,
+                2.4729165944337593e-10,
+                2.4729165944337593e-10,
+                2.4729165944337593e-10,
+                2.4729165944337593e-10,
+                2.4729165944337593e-10,
+                2.4729165944337593e-10,
+                2.4729165944337593e-10
+              ],
+              "hasMass": false,
+              "massMissingCount": 2,
+              "principalInertia": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "principalAxes": [
+                {
+                  "btType": "BTVector3d-389",
+                  "y": 0.0,
+                  "x": 1.0,
+                  "z": 0.0
+                },
+                {
+                  "btType": "BTVector3d-389",
+                  "y": 1.0,
+                  "x": 0.0,
+                  "z": 0.0
+                },
+                {
+                  "btType": "BTVector3d-389",
+                  "y": 0.0,
+                  "x": 0.0,
+                  "z": 1.0
+                }
+              ]
+            }
+          }
+        },
+        "gltf": {
+          "path": "/var/folders/jp/k76bwhg92qvbr206nhqjmsnw0000gp/T/bettersiri_onshape_dd95a84055f14ad1af789a9c95ee7872.glb",
+          "bytes": 94380
+        }
+      },
+      "bbox_mm": {
+        "x": 76.2,
+        "y": 76.2,
+        "z": 76.2,
+        "lowX": -38.1,
+        "lowY": -38.1,
+        "lowZ": -38.1,
+        "highX": 38.1,
+        "highY": 38.1,
+        "highZ": 38.1
+      },
+      "volume_m3": 0.00024729165944337595,
+      "artifacts": {
+        "gltf": "/Users/superudmarts/Desktop/cluely/scripts/onshape_agent_tests/runs/20260125_215831/artifacts/direct_cube_25mm/bettersiri_onshape_dd95a84055f14ad1af789a9c95ee7872.glb"
+      },
+      "transcript": [
+        {
+          "type": "tool_call",
+          "name": "cad_create_cube",
+          "arguments": {
+            "name": "Eval Cube 25mm",
+            "side_length": "25 mm"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_cube",
+          "ok": true
+        }
+      ],
+      "elapsed_s": 3.2866110801696777,
+      "new_feature_ids": [
+        "FuJ2XttSBZEmUPf_1"
+      ]
+    },
+    {
+      "case_id": "direct_plate_with_through_hole",
+      "kind": "direct",
+      "ok": false,
+      "error": "bbox_y_out_of_range:76.20 not in [40.00,60.00];bbox_z_out_of_range:75.55 not in [4.00,10.00]",
+      "tool_errors": 0,
+      "tool_calls": 4,
+      "snapshot": {
+        "did": "89a3e2e598f9ad2ace0fb496",
+        "wvm": "w",
+        "wvmid": "8c522fba543883263f4d1645",
+        "eid": "466338a94d244e8b3d9ca656",
+        "bounding_boxes": {
+          "lowX": -0.05,
+          "lowY": -0.0381,
+          "lowZ": -0.0381,
+          "highX": 0.05,
+          "highY": 0.0381,
+          "highZ": 0.037451435219494594
+        },
+        "mass_properties": {
+          "microversionId": "e41e0a679ea59be118ebae4c",
+          "bodies": {
+            "-all-": {
+              "mass": [
+                0.0,
+                -4.020481760311201e-09,
+                4.020481760311201e-09
+              ],
+              "volume": [
+                0.00025492776843088875,
+                0.00025492374794912847,
+                0.00025493178891264904
+              ],
+              "periphery": [
+                0.031643365635057236,
+                0.03164330222778825,
+                0.03164342904232622
+              ],
+              "centroid": [
+                0.0,
+                0.0,
+                -0.0003242823902527038,
+                -1e-06,
+                -1e-06,
+                -0.0003252823902527039,
+                1e-06,
+                1e-06,
+                -0.00032328239025270373
+              ],
+              "inertia": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                -2.549277684308886e-10,
+                -2.549277684308886e-10,
+                -2.549277684308886e-10,
+                -2.549277684308886e-10,
+                -2.549277684308886e-10,
+                -2.549277684308886e-10,
+                -2.549277684308886e-10,
+                -2.549277684308886e-10,
+                -2.549277684308886e-10,
+                2.549277684308886e-10,
+                2.549277684308886e-10,
+                2.549277684308886e-10,
+                2.549277684308886e-10,
+                2.549277684308886e-10,
+                2.549277684308886e-10,
+                2.549277684308886e-10,
+                2.549277684308886e-10,
+                2.549277684308886e-10
+              ],
+              "hasMass": false,
+              "massMissingCount": 2,
+              "principalInertia": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "principalAxes": [
+                {
+                  "btType": "BTVector3d-389",
+                  "y": 0.0,
+                  "x": 1.0,
+                  "z": 0.0
+                },
+                {
+                  "btType": "BTVector3d-389",
+                  "y": 1.0,
+                  "x": 0.0,
+                  "z": 0.0
+                },
+                {
+                  "btType": "BTVector3d-389",
+                  "y": 0.0,
+                  "x": 0.0,
+                  "z": 1.0
+                }
+              ]
+            }
+          }
+        },
+        "gltf": {
+          "path": "/var/folders/jp/k76bwhg92qvbr206nhqjmsnw0000gp/T/bettersiri_onshape_0a0f4994c153459d9d8485f5fa5e6b07.glb",
+          "bytes": 106464
+        }
+      },
+      "bbox_mm": {
+        "x": 100.0,
+        "y": 76.2,
+        "z": 75.55143521949459,
+        "lowX": -50.0,
+        "lowY": -38.1,
+        "lowZ": -38.1,
+        "highX": 50.0,
+        "highY": 38.1,
+        "highZ": 37.45143521949459
+      },
+      "volume_m3": 0.00025492776843088875,
+      "artifacts": {
+        "gltf": "/Users/superudmarts/Desktop/cluely/scripts/onshape_agent_tests/runs/20260125_215831/artifacts/direct_plate_with_through_hole/bettersiri_onshape_0a0f4994c153459d9d8485f5fa5e6b07.glb"
+      },
+      "transcript": [
+        {
+          "type": "tool_call",
+          "name": "cad_create_sketch",
+          "arguments": {
+            "name": "Plate Sketch",
+            "plane": "Top",
+            "rectangles": [
+              {
+                "x1": "-50 mm",
+                "y1": "-25 mm",
+                "x2": "50 mm",
+                "y2": "25 mm"
+              }
+            ]
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_sketch",
+          "ok": true
+        },
+        {
+          "type": "var",
+          "name": "plate_sketch",
+          "value": "FZqLUE4cbLexvm8_1"
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude",
+          "arguments": {
+            "name": "Plate Extrude",
+            "sketch_feature_id": "FZqLUE4cbLexvm8_1",
+            "depth": "6 mm",
+            "operation": "NEW",
+            "direction": "NORMAL"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_sketch",
+          "arguments": {
+            "name": "Hole Sketch",
+            "plane": "Top",
+            "circles": [
+              {
+                "cx": "0 mm",
+                "cy": "0 mm",
+                "radius": "7 mm"
+              }
+            ]
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_sketch",
+          "ok": true
+        },
+        {
+          "type": "var",
+          "name": "hole_sketch",
+          "value": "FGJ8PqqxBuZ5rtz_2"
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude",
+          "arguments": {
+            "name": "Hole Cut",
+            "sketch_feature_id": "FGJ8PqqxBuZ5rtz_2",
+            "operation": "REMOVE",
+            "direction": "THROUGH_ALL"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude",
+          "ok": true
+        }
+      ],
+      "elapsed_s": 2.8113999366760254,
+      "new_feature_ids": [
+        "FZqLUE4cbLexvm8_1",
+        "FWAyLiNeo4aUopZ_1",
+        "FGJ8PqqxBuZ5rtz_2",
+        "FQH5gUWDbrPbDwC_2"
+      ]
+    }
+  ],
+  "failures": 2
+}

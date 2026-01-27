@@ -13,10 +13,13 @@ struct BetterSiriApp: App {
         }
 
         // Settings window
-        Settings {
+        // Using a regular Window scene here is more reliable across macOS
+        // versions for MenuBarExtra-based apps than the Settings scene.
+        Window("Settings", id: "settings") {
             SettingsView()
                 .environmentObject(appDelegate.coordinator)
         }
+        .windowResizability(.contentSize)
     }
 }
 

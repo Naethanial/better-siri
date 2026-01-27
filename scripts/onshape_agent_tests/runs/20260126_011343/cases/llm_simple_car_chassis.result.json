@@ -1,0 +1,16 @@
+{
+  "case_id": "llm_simple_car_chassis",
+  "kind": "llm",
+  "ok": false,
+  "error": "OnShape HTTP 400: {\n  \"moreInfoUrl\" : \"\",\n  \"message\" : \"An illegal argument was provided, check your request.\",\n  \"status\" : 400,\n  \"code\" : 0\n}",
+  "tool_errors": 0,
+  "tool_calls": 0,
+  "snapshot": null,
+  "bbox_mm": null,
+  "volume_m3": null,
+  "artifacts": {},
+  "transcript": [],
+  "baseline_snapshot": null,
+  "elapsed_s": 2.3799691200256348,
+  "new_feature_ids": []
+}

@@ -1,0 +1,222 @@
+{
+  "results": [
+    {
+      "case_id": "llm_flanged_plate",
+      "kind": "llm",
+      "ok": false,
+      "error": "Exceeded max_tool_iters=10",
+      "tool_errors": 6,
+      "tool_calls": 10,
+      "snapshot": null,
+      "bbox_mm": null,
+      "volume_m3": null,
+      "artifacts": {},
+      "transcript": [
+        {
+          "type": "attachments",
+          "debug": []
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_sketch",
+          "arguments": {
+            "name": "Base Plate Sketch",
+            "plane": "Top",
+            "rectangles": [
+              {
+                "x1": "-70 mm",
+                "y1": "-70 mm",
+                "x2": "70 mm",
+                "y2": "70 mm"
+              }
+            ]
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude",
+          "arguments": {
+            "sketch_feature_id": "FjIu4bHCvqQKRGp_0",
+            "name": "Base Plate",
+            "depth": "5 mm",
+            "operation": "NEW",
+            "direction": "SYMMETRIC"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude",
+          "ok": false,
+          "error": "OnShape HTTP 400: {'moreInfoUrl': '', 'message': 'Parameter endBound in feature FZ8o2BZxt3zAzmG_0 of type Extrude does not match its feature spec', 'status': 400, 'code': 9999}"
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude",
+          "arguments": {
+            "sketch_feature_id": "FjIu4bHCvqQKRGp_0",
+            "name": "Base Plate",
+            "depth": "10 mm",
+            "operation": "NEW",
+            "direction": "SYMMETRIC"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude",
+          "ok": false,
+          "error": "OnShape HTTP 400: {'moreInfoUrl': '', 'message': 'Parameter endBound in feature FPTZfk0MY5l5myy_0 of type Extrude does not match its feature spec', 'status': 400, 'code': 9999}"
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Base Plate",
+            "sketch_feature_id": "FjIu4bHCvqQKRGp_0",
+            "depth": "10 mm",
+            "operation": "NEW",
+            "direction": "SYMMETRIC"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": false,
+          "error": "OnShape HTTP 400: {'moreInfoUrl': '', 'message': 'Parameter endBound in feature FDurzoxDVzKZIi3_0 of type Extrude does not match its feature spec', 'status': 400, 'code': 9999}"
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Base Plate",
+            "sketch_feature_id": "FjIu4bHCvqQKRGp_0",
+            "depth": "5 mm",
+            "operation": "NEW",
+            "direction": "SYMMETRIC"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": false,
+          "error": "OnShape HTTP 400: {'moreInfoUrl': '', 'message': 'Parameter endBound in feature FjZU5BzpMDqtZcg_0 of type Extrude does not match its feature spec', 'status': 400, 'code': 9999}"
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Base Plate",
+            "sketch_feature_id": "FjIu4bHCvqQKRGp_0",
+            "depth": "5 mm",
+            "operation": "NEW",
+            "direction": "NORMAL"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_cylinder",
+          "arguments": {
+            "plane": "Top",
+            "radius": "25 mm",
+            "x_center": "0 mm",
+            "y_center": "0 mm",
+            "depth": "15 mm",
+            "operation": "ADD"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_cylinder",
+          "ok": false,
+          "error": "Failed to create sketch; missing featureId"
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_cylinder",
+          "arguments": {
+            "plane": "Top",
+            "radius": "25 mm",
+            "x_center": "0 mm",
+            "y_center": "0 mm",
+            "depth": "15 mm",
+            "operation": "ADD"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_cylinder",
+          "ok": false,
+          "error": "Failed to create sketch; missing featureId"
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_circle_sketch",
+          "arguments": {
+            "name": "Bolt Hole Sketch",
+            "plane": "Top",
+            "radius": "5 mm",
+            "x_center": "0 mm",
+            "y_center": "0 mm"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_circle_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_pattern_circular",
+          "arguments": {
+            "entities_query": "F8o5IAV5d3oxiW3_1",
+            "axis_query": "Top",
+            "angle": "360 deg",
+            "instance_count": 8
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_pattern_circular",
+          "ok": true
+        }
+      ],
+      "baseline_snapshot": {
+        "did": "89a3e2e598f9ad2ace0fb496",
+        "wvm": "w",
+        "wvmid": "8c522fba543883263f4d1645",
+        "eid": "d2b947cb84afb7d0773d4f13",
+        "elementType": "PARTSTUDIO",
+        "metadata": {
+          "partCount": 0,
+          "partNames": []
+        },
+        "bounding_boxes": {
+          "highY": 0.0,
+          "highZ": 0.0,
+          "lowX": 0.0,
+          "lowY": 0.0,
+          "lowZ": 0.0,
+          "highX": 0.0
+        },
+        "mass_properties": {
+          "microversionId": "6fee4503e46c3a3e543bf5c7",
+          "bodies": {}
+        },
+        "gltf": null,
+        "gltf_error": "OnShape HTTP 400: {\n  \"moreInfoUrl\" : \"\",\n  \"message\" : \"An illegal argument was provided, check your request.\",\n  \"status\" : 400,\n  \"code\" : 0\n}"
+      },
+      "elapsed_s": 34.95701289176941,
+      "new_feature_ids": []
+    }
+  ],
+  "failures": 1
+}

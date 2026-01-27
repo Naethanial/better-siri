@@ -1,0 +1,8 @@
+{
+  "id": "llm_sweep_spline",
+  "kind": "llm",
+  "prompt": "Create a swept handle: \n1) In a new Part Studio, create a spline path on the Front plane using points (0,0), (20,50), (40,0).\n2) Create a 5mm radius circle on the Top plane at the origin (0,0).\n3) Sweep the circle along the spline path.\nUse explicit mm units.",
+  "checks": {
+    "require_volume_positive": true
+  }
+}

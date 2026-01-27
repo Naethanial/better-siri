@@ -1,0 +1,461 @@
+{
+  "results": [
+    {
+      "case_id": "llm_u_channel_bracket",
+      "kind": "llm",
+      "ok": true,
+      "error": null,
+      "tool_errors": 1,
+      "tool_calls": 16,
+      "snapshot": {
+        "did": "89a3e2e598f9ad2ace0fb496",
+        "wvm": "w",
+        "wvmid": "8c522fba543883263f4d1645",
+        "eid": "9b831f9d8ef11ae82d8e68a5",
+        "bounding_boxes": {
+          "lowX": -0.06,
+          "lowY": -0.02,
+          "lowZ": 0.0,
+          "highX": 0.06,
+          "highY": 0.02,
+          "highZ": 0.020000000000000004
+        },
+        "mass_properties": {
+          "microversionId": "ac3540c13d80e5fbb9b06d58",
+          "bodies": {
+            "-all-": {
+              "mass": [
+                0.0,
+                -1.0187828499565645e-09,
+                1.0187828499565645e-09
+              ],
+              "volume": [
+                3.251789603789299e-05,
+                3.2516877255043034e-05,
+                3.251891482074295e-05
+              ],
+              "periphery": [
+                0.01878957786225798,
+                0.018789545943880045,
+                0.018789609780635912
+              ],
+              "centroid": [
+                0.0,
+                0.0,
+                0.0,
+                -1e-06,
+                -1e-06,
+                -1e-06,
+                1e-06,
+                1e-06,
+                1e-06
+              ],
+              "inertia": [
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                -3.251789603789297e-11,
+                -3.251789603789297e-11,
+                -3.251789603789297e-11,
+                -3.251789603789297e-11,
+                -3.251789603789297e-11,
+                -3.251789603789297e-11,
+                -3.251789603789297e-11,
+                -3.251789603789297e-11,
+                -3.251789603789297e-11,
+                3.251789603789297e-11,
+                3.251789603789297e-11,
+                3.251789603789297e-11,
+                3.251789603789297e-11,
+                3.251789603789297e-11,
+                3.251789603789297e-11,
+                3.251789603789297e-11,
+                3.251789603789297e-11,
+                3.251789603789297e-11
+              ],
+              "hasMass": false,
+              "massMissingCount": 1,
+              "principalInertia": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "principalAxes": [
+                {
+                  "btType": "BTVector3d-389",
+                  "y": 0.0,
+                  "x": 1.0,
+                  "z": 0.0
+                },
+                {
+                  "btType": "BTVector3d-389",
+                  "y": 1.0,
+                  "x": 0.0,
+                  "z": 0.0
+                },
+                {
+                  "btType": "BTVector3d-389",
+                  "y": 0.0,
+                  "x": 0.0,
+                  "z": 1.0
+                }
+              ]
+            }
+          }
+        },
+        "gltf": {
+          "path": "/var/folders/jp/k76bwhg92qvbr206nhqjmsnw0000gp/T/bettersiri_onshape_2b3a3963c43d4ed493fc41727222b304.glb",
+          "bytes": 47940
+        },
+        "gltf_error": null
+      },
+      "bbox_mm": {
+        "x": 120.0,
+        "y": 40.0,
+        "z": 20.000000000000004,
+        "lowX": -60.0,
+        "lowY": -20.0,
+        "lowZ": 0.0,
+        "highX": 60.0,
+        "highY": 20.0,
+        "highZ": 20.000000000000004
+      },
+      "volume_m3": 3.251789603789299e-05,
+      "artifacts": {
+        "gltf": "/Users/superudmarts/Desktop/cluely/scripts/onshape_agent_tests/runs/20260126_091954/artifacts/llm_u_channel_bracket/bettersiri_onshape_2b3a3963c43d4ed493fc41727222b304.glb"
+      },
+      "transcript": [
+        {
+          "type": "attachments",
+          "debug": []
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_sketch",
+          "arguments": {
+            "name": "Base Plate",
+            "plane": "Top",
+            "rectangles": [
+              {
+                "x1": "-60 mm",
+                "y1": "-20 mm",
+                "x2": "60 mm",
+                "y2": "20 mm"
+              }
+            ]
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_sketch",
+          "arguments": {
+            "name": "Left Wall",
+            "plane": "Top",
+            "rectangles": [
+              {
+                "x1": "-60 mm",
+                "y1": "16 mm",
+                "x2": "60 mm",
+                "y2": "20 mm"
+              }
+            ]
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_sketch",
+          "arguments": {
+            "name": "Right Wall",
+            "plane": "Top",
+            "rectangles": [
+              {
+                "x1": "-60 mm",
+                "y1": "-20 mm",
+                "x2": "60 mm",
+                "y2": "-16 mm"
+              }
+            ]
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Base Plate",
+            "sketch_feature_id": "FqJ8qM8D9zaLAnl_0",
+            "depth": "4 mm",
+            "operation": "NEW",
+            "direction": "SYMMETRIC"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": false,
+          "error": "OnShape HTTP 400: {'moreInfoUrl': '', 'message': 'Parameter endBound in feature FNpJWUHgmKJArNX_0 of type Extrude does not match its feature spec', 'status': 400, 'code': 9999}"
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Left Wall",
+            "sketch_feature_id": "F0CiYdNkq3d8MbX_0",
+            "depth": "20 mm",
+            "operation": "ADD",
+            "direction": "NORMAL"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Right Wall",
+            "sketch_feature_id": "FLEaNUmTyHVqiLz_0",
+            "depth": "20 mm",
+            "operation": "ADD",
+            "direction": "NORMAL"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Base Plate",
+            "sketch_feature_id": "FqJ8qM8D9zaLAnl_0",
+            "depth": "4 mm",
+            "operation": "NEW",
+            "direction": "NORMAL"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Left Wall",
+            "sketch_feature_id": "F0CiYdNkq3d8MbX_0",
+            "depth": "20 mm",
+            "operation": "ADD",
+            "direction": "NORMAL"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Right Wall",
+            "sketch_feature_id": "FLEaNUmTyHVqiLz_0",
+            "depth": "20 mm",
+            "operation": "ADD",
+            "direction": "NORMAL"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_sketch",
+          "arguments": {
+            "name": "Base Holes",
+            "plane": "Top",
+            "circles": [
+              {
+                "cx": "-30 mm",
+                "cy": "0 mm",
+                "radius": "3 mm"
+              },
+              {
+                "cx": "30 mm",
+                "cy": "0 mm",
+                "radius": "3 mm"
+              }
+            ]
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_sketch",
+          "arguments": {
+            "name": "Left Wall Holes",
+            "plane": "Top",
+            "circles": [
+              {
+                "cx": "-20 mm",
+                "cy": "18 mm",
+                "radius": "3 mm"
+              },
+              {
+                "cx": "20 mm",
+                "cy": "18 mm",
+                "radius": "3 mm"
+              }
+            ]
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_sketch",
+          "arguments": {
+            "name": "Right Wall Holes",
+            "plane": "Top",
+            "circles": [
+              {
+                "cx": "-20 mm",
+                "cy": "-18 mm",
+                "radius": "3 mm"
+              },
+              {
+                "cx": "20 mm",
+                "cy": "-18 mm",
+                "radius": "3 mm"
+              }
+            ]
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Base Holes",
+            "sketch_feature_id": "FbBHD0OYn5wBl3y_1",
+            "depth": "0 mm",
+            "operation": "REMOVE",
+            "direction": "THROUGH_ALL"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Left Wall Holes",
+            "sketch_feature_id": "FWC8ZyMwhGBJtJX_1",
+            "depth": "0 mm",
+            "operation": "REMOVE",
+            "direction": "THROUGH_ALL"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Right Wall Holes",
+            "sketch_feature_id": "Fe1sCmnMF8Y676b_1",
+            "depth": "0 mm",
+            "operation": "REMOVE",
+            "direction": "THROUGH_ALL"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "onshape_snapshot_partstudio",
+          "arguments": {}
+        },
+        {
+          "type": "tool_result",
+          "name": "onshape_snapshot_partstudio",
+          "ok": true
+        },
+        {
+          "type": "assistant",
+          "content": "The U-channel bracket has been successfully created with the specified geometry. Here\u2019s a summary of the features:\n\n1. **Base Plate**: 120 mm x 40 mm x 4 mm thick.\n2. **Side Walls**: Two walls, each 120 mm long and 4 mm thick, extruded to 20 mm high.\n3. **Holes**: \n   - Two holes on the base at (x=-30 mm, y=0) and (x=30 mm, y=0).\n   - Four holes on the walls, two on each wall at (x=-20 mm, y=18 mm) and (x=20 mm, y=18 mm) for the left wall, and at (x=-20 mm, y=-18 mm) and (x=20 mm, y=-18 mm) for the right wall.\n\n### Validation:\n- The bounding box dimensions are approximately:\n  - X: \u00b160 mm\n  - Y: \u00b120 mm\n  - Z: 20 mm\n\nThis matches the expected dimensions for the bracket. If you need any further modifications or additional features, please let me know!"
+        }
+      ],
+      "baseline_snapshot": {
+        "did": "89a3e2e598f9ad2ace0fb496",
+        "wvm": "w",
+        "wvmid": "8c522fba543883263f4d1645",
+        "eid": "9b831f9d8ef11ae82d8e68a5",
+        "bounding_boxes": {
+          "lowX": 0.0,
+          "lowY": 0.0,
+          "lowZ": 0.0,
+          "highX": 0.0,
+          "highY": 0.0,
+          "highZ": 0.0
+        },
+        "mass_properties": {
+          "microversionId": "774decd3418e31f1414263c4",
+          "bodies": {}
+        },
+        "gltf": null,
+        "gltf_error": "OnShape HTTP 400: {\n  \"moreInfoUrl\" : \"\",\n  \"message\" : \"An illegal argument was provided, check your request.\",\n  \"status\" : 400,\n  \"code\" : 0\n}"
+      },
+      "elapsed_s": 49.64557886123657,
+      "new_feature_ids": []
+    }
+  ],
+  "failures": 0
+}

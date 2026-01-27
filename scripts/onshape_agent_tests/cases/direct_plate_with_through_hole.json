@@ -1,0 +1,63 @@
+{
+  "id": "direct_plate_with_through_hole",
+  "kind": "direct",
+  "tool_calls": [
+    {
+      "name": "cad_create_sketch",
+      "arguments": {
+        "name": "Plate Sketch",
+        "plane": "Top",
+        "rectangles": [
+          {
+            "x1": "-50 mm",
+            "y1": "-25 mm",
+            "x2": "50 mm",
+            "y2": "25 mm"
+          }
+        ]
+      },
+      "save_feature_id_as": "plate_sketch"
+    },
+    {
+      "name": "cad_extrude",
+      "arguments": {
+        "name": "Plate Extrude",
+        "sketch_feature_id": "${plate_sketch}",
+        "depth": "6 mm",
+        "operation": "NEW",
+        "direction": "NORMAL"
+      }
+    },
+    {
+      "name": "cad_create_sketch",
+      "arguments": {
+        "name": "Hole Sketch",
+        "plane": "Top",
+        "circles": [
+          {
+            "cx": "0 mm",
+            "cy": "0 mm",
+            "radius": "7 mm"
+          }
+        ]
+      },
+      "save_feature_id_as": "hole_sketch"
+    },
+    {
+      "name": "cad_extrude",
+      "arguments": {
+        "name": "Hole Cut",
+        "sketch_feature_id": "${hole_sketch}",
+        "operation": "REMOVE",
+        "direction": "THROUGH_ALL"
+      }
+    }
+  ],
+  "checks": {
+    "require_volume_positive": true,
+    "delta_volume_m3": [2.3e-05, 3.5e-05],
+    "delta_bbox_mm": {
+      "x": [90, 110]
+    }
+  }
+}

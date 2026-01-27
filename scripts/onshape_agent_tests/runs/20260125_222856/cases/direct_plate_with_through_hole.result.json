@@ -1,0 +1,328 @@
+{
+  "case_id": "direct_plate_with_through_hole",
+  "kind": "direct",
+  "ok": true,
+  "error": null,
+  "tool_errors": 0,
+  "tool_calls": 4,
+  "snapshot": {
+    "did": "89a3e2e598f9ad2ace0fb496",
+    "wvm": "w",
+    "wvmid": "8c522fba543883263f4d1645",
+    "eid": "466338a94d244e8b3d9ca656",
+    "bounding_boxes": {
+      "lowZ": -0.0381,
+      "highX": 0.05,
+      "highY": 0.0381,
+      "highZ": 0.037451435219494594,
+      "lowX": -0.05,
+      "lowY": -0.0381
+    },
+    "mass_properties": {
+      "microversionId": "3689e3bc100155bb4f4f16ae",
+      "bodies": {
+        "-all-": {
+          "mass": [
+            0.0,
+            -4.020481760311201e-09,
+            4.020481760311201e-09
+          ],
+          "volume": [
+            0.00025492776843088875,
+            0.00025492374794912847,
+            0.00025493178891264904
+          ],
+          "periphery": [
+            0.031643365635057236,
+            0.03164330222778825,
+            0.03164342904232622
+          ],
+          "centroid": [
+            0.0,
+            0.0,
+            -0.0003242823902527038,
+            -1e-06,
+            -1e-06,
+            -0.0003252823902527039,
+            1e-06,
+            1e-06,
+            -0.00032328239025270373
+          ],
+          "inertia": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -2.549277684308886e-10,
+            -2.549277684308886e-10,
+            -2.549277684308886e-10,
+            -2.549277684308886e-10,
+            -2.549277684308886e-10,
+            -2.549277684308886e-10,
+            -2.549277684308886e-10,
+            -2.549277684308886e-10,
+            -2.549277684308886e-10,
+            2.549277684308886e-10,
+            2.549277684308886e-10,
+            2.549277684308886e-10,
+            2.549277684308886e-10,
+            2.549277684308886e-10,
+            2.549277684308886e-10,
+            2.549277684308886e-10,
+            2.549277684308886e-10,
+            2.549277684308886e-10
+          ],
+          "hasMass": false,
+          "massMissingCount": 2,
+          "principalInertia": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "principalAxes": [
+            {
+              "btType": "BTVector3d-389",
+              "y": 0.0,
+              "x": 1.0,
+              "z": 0.0
+            },
+            {
+              "btType": "BTVector3d-389",
+              "y": 1.0,
+              "x": 0.0,
+              "z": 0.0
+            },
+            {
+              "btType": "BTVector3d-389",
+              "y": 0.0,
+              "x": 0.0,
+              "z": 1.0
+            }
+          ]
+        }
+      }
+    },
+    "gltf": {
+      "path": "/var/folders/jp/k76bwhg92qvbr206nhqjmsnw0000gp/T/bettersiri_onshape_b60e97cc618d42cc9997ffce8b823e17.glb",
+      "bytes": 106464
+    }
+  },
+  "bbox_mm": {
+    "x": 100.0,
+    "y": 76.2,
+    "z": 75.55143521949459,
+    "lowX": -50.0,
+    "lowY": -38.1,
+    "lowZ": -38.1,
+    "highX": 50.0,
+    "highY": 38.1,
+    "highZ": 37.45143521949459
+  },
+  "volume_m3": 0.00025492776843088875,
+  "artifacts": {
+    "gltf": "/Users/superudmarts/Desktop/cluely/scripts/onshape_agent_tests/runs/20260125_222856/artifacts/direct_plate_with_through_hole/bettersiri_onshape_b60e97cc618d42cc9997ffce8b823e17.glb"
+  },
+  "transcript": [
+    {
+      "type": "tool_call",
+      "name": "cad_create_sketch",
+      "arguments": {
+        "name": "Plate Sketch",
+        "plane": "Top",
+        "rectangles": [
+          {
+            "x1": "-50 mm",
+            "y1": "-25 mm",
+            "x2": "50 mm",
+            "y2": "25 mm"
+          }
+        ]
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_create_sketch",
+      "ok": true
+    },
+    {
+      "type": "var",
+      "name": "plate_sketch",
+      "value": "FRDU8ySZkWE3ccJ_1"
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_extrude",
+      "arguments": {
+        "name": "Plate Extrude",
+        "sketch_feature_id": "FRDU8ySZkWE3ccJ_1",
+        "depth": "6 mm",
+        "operation": "NEW",
+        "direction": "NORMAL"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_extrude",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_create_sketch",
+      "arguments": {
+        "name": "Hole Sketch",
+        "plane": "Top",
+        "circles": [
+          {
+            "cx": "0 mm",
+            "cy": "0 mm",
+            "radius": "7 mm"
+          }
+        ]
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_create_sketch",
+      "ok": true
+    },
+    {
+      "type": "var",
+      "name": "hole_sketch",
+      "value": "FlQ4RHSlz8XkYHJ_2"
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_extrude",
+      "arguments": {
+        "name": "Hole Cut",
+        "sketch_feature_id": "FlQ4RHSlz8XkYHJ_2",
+        "operation": "REMOVE",
+        "direction": "THROUGH_ALL"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_extrude",
+      "ok": true
+    }
+  ],
+  "baseline_snapshot": {
+    "did": "89a3e2e598f9ad2ace0fb496",
+    "wvm": "w",
+    "wvmid": "8c522fba543883263f4d1645",
+    "eid": "466338a94d244e8b3d9ca656",
+    "bounding_boxes": {
+      "lowZ": -0.0381,
+      "highX": 0.0381,
+      "highY": 0.0381,
+      "highZ": 0.0381,
+      "lowX": -0.0381,
+      "lowY": -0.0381
+    },
+    "mass_properties": {
+      "microversionId": "d0543d38e68f5cc118ff3ddf",
+      "bodies": {
+        "-all-": {
+          "mass": [
+            0.0,
+            -3.7720348008063614e-09,
+            3.7720348008063614e-09
+          ],
+          "volume": [
+            0.00023166665944337596,
+            0.00023166288740857516,
+            0.00023167043147817677
+          ],
+          "periphery": [
+            0.01824146924750992,
+            0.01824140783061647,
+            0.018241530664403368
+          ],
+          "centroid": [
+            0.0,
+            0.0,
+            0.0,
+            -1e-06,
+            -1e-06,
+            -1e-06,
+            1e-06,
+            1e-06,
+            1e-06
+          ],
+          "inertia": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            -2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10,
+            2.316666594433759e-10
+          ],
+          "hasMass": false,
+          "massMissingCount": 1,
+          "principalInertia": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "principalAxes": [
+            {
+              "btType": "BTVector3d-389",
+              "y": 0.0,
+              "x": 1.0,
+              "z": 0.0
+            },
+            {
+              "btType": "BTVector3d-389",
+              "y": 1.0,
+              "x": 0.0,
+              "z": 0.0
+            },
+            {
+              "btType": "BTVector3d-389",
+              "y": 0.0,
+              "x": 0.0,
+              "z": 1.0
+            }
+          ]
+        }
+      }
+    },
+    "gltf": {
+      "path": "/var/folders/jp/k76bwhg92qvbr206nhqjmsnw0000gp/T/bettersiri_onshape_dd3b57afb434430e97548ed6529c4d97.glb",
+      "bytes": 92572
+    }
+  },
+  "elapsed_s": 3.8068578243255615,
+  "new_feature_ids": [
+    "FRDU8ySZkWE3ccJ_1",
+    "FGzzuDqHn6o0ucL_1",
+    "FlQ4RHSlz8XkYHJ_2",
+    "FNDNoIscNxtOTrB_2"
+  ]
+}

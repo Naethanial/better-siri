@@ -1,0 +1,216 @@
+{
+  "results": [
+    {
+      "case_id": "llm_fastened_mate",
+      "kind": "llm",
+      "ok": false,
+      "error": "Exceeded max_tool_iters=10",
+      "tool_errors": 0,
+      "tool_calls": 13,
+      "snapshot": null,
+      "bbox_mm": null,
+      "volume_m3": null,
+      "artifacts": {},
+      "transcript": [
+        {
+          "type": "attachments",
+          "debug": []
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_partstudio",
+          "arguments": {
+            "name": "Peg"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_partstudio",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_partstudio",
+          "arguments": {
+            "name": "Base"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_partstudio",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_cylinder",
+          "arguments": {
+            "plane": "TOP",
+            "radius": "5 mm",
+            "x_center": "0 mm",
+            "y_center": "0 mm",
+            "depth": "20 mm",
+            "operation": "NEW"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_cylinder",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_cube",
+          "arguments": {
+            "name": "Base",
+            "side_length": "50 mm"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_cube",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_create_circle_sketch",
+          "arguments": {
+            "name": "Hole",
+            "plane": "TOP",
+            "radius": "2.5 mm",
+            "x_center": "0 mm",
+            "y_center": "0 mm"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_create_circle_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "cad_extrude_from_sketch",
+          "arguments": {
+            "name": "Through Hole",
+            "sketch_feature_id": "FqBHs1dE6OtUySL_2",
+            "depth": "50 mm",
+            "operation": "NEW",
+            "direction": "THROUGH_ALL"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "cad_extrude_from_sketch",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "onshape_create_assembly",
+          "arguments": {
+            "name": "Final"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "onshape_create_assembly",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "onshape_insert_instance",
+          "arguments": {
+            "source_did": "<DID>",
+            "source_eid": "fa90930c84e73a163074aaf9",
+            "source_wid": "<WID>"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "onshape_insert_instance",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "onshape_insert_instance",
+          "arguments": {
+            "source_did": "<DID>",
+            "source_eid": "b2da025b7db0eae85d32dece",
+            "source_wid": "<WID>"
+          }
+        },
+        {
+          "type": "tool_result",
+          "name": "onshape_insert_instance",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "onshape_switch_to_element",
+          "arguments": {}
+        },
+        {
+          "type": "tool_result",
+          "name": "onshape_switch_to_element",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "onshape_switch_to_element",
+          "arguments": {}
+        },
+        {
+          "type": "tool_result",
+          "name": "onshape_switch_to_element",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "onshape_switch_to_element",
+          "arguments": {}
+        },
+        {
+          "type": "tool_result",
+          "name": "onshape_switch_to_element",
+          "ok": true
+        },
+        {
+          "type": "tool_call",
+          "name": "onshape_get_assembly_definition",
+          "arguments": {}
+        },
+        {
+          "type": "tool_result",
+          "name": "onshape_get_assembly_definition",
+          "ok": true
+        }
+      ],
+      "baseline_snapshot": {
+        "did": "89a3e2e598f9ad2ace0fb496",
+        "wvm": "w",
+        "wvmid": "8c522fba543883263f4d1645",
+        "eid": "f6770d79dd2aa5cf0b8e9412",
+        "elementType": "PARTSTUDIO",
+        "metadata": {
+          "partCount": 0,
+          "partNames": []
+        },
+        "bounding_boxes": {
+          "lowX": 0.0,
+          "lowY": 0.0,
+          "lowZ": 0.0,
+          "highX": 0.0,
+          "highY": 0.0,
+          "highZ": 0.0
+        },
+        "mass_properties": {
+          "microversionId": "72f535a7a13c2c7d53199ef3",
+          "bodies": {}
+        },
+        "gltf": null,
+        "gltf_error": "OnShape HTTP 400: {\n  \"moreInfoUrl\" : \"\",\n  \"message\" : \"An illegal argument was provided, check your request.\",\n  \"status\" : 400,\n  \"code\" : 0\n}"
+      },
+      "elapsed_s": 36.355366945266724,
+      "new_feature_ids": []
+    }
+  ],
+  "failures": 1
+}

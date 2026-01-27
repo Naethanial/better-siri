@@ -1,6 +1,9 @@
 # Build artifacts
 .build/
 Cluely.app/
+BetterSiri.app/
+dist/
+*.dmg
 *.xcodeproj/
 *.xcworkspace/
 xcuserdata/

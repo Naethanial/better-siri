@@ -1,0 +1,10 @@
+{
+  "id": "llm_simple_assembly",
+  "kind": "llm",
+  "prompt": "Create a simple assembly: \n1) Create a new Part Studio named 'Part A', and create a 20 mm cube in it.\n2) Create another Part Studio named 'Part B', and create a 20 mm cube in it.\n3) Create a new Assembly named 'My Assembly'.\n4) Insert 'Part A' and 'Part B' into the assembly.\n5) Transform 'Part B' so it is offset by 50 mm in the X direction relative to 'Part A'.\nUse explicit mm units. Use onshape_snapshot_element to verify the final assembly. BBox X should be around 70mm.",
+  "checks": {
+    "bbox_mm": {
+      "x": [65, 75]
+    }
+  }
+}

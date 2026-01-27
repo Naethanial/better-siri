@@ -1,0 +1,14 @@
+{
+  "id": "llm_simple_car_chassis",
+  "kind": "llm",
+  "prompt": "Create a simple RC-style car chassis as a parametric model: a 180 mm x 80 mm x 3 mm base plate, 4 wheel holes (diameter 6 mm) located 15 mm from each corner, and 4 wheel cylinders (radius 20 mm, thickness 8 mm) centered on those holes but as separate NEW bodies. Then add 2 longitudinal ribs: 160 mm x 6 mm x 12 mm, located at y=+20 mm and y=-20 mm, merged (ADD) to the base. Use separate sketches where needed and explicit units. Validate with onshape_snapshot_partstudio.",
+  "checks": {
+    "require_volume_positive": true,
+    "delta_volume_m3": [1e-8, 1e-1],
+    "bbox_mm": {
+      "x": [160, 220],
+      "y": [60, 120],
+      "z": [10, 30]
+    }
+  }
+}

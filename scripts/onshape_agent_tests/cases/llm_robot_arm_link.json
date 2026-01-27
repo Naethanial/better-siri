@@ -1,0 +1,14 @@
+{
+  "id": "llm_robot_arm_link",
+  "kind": "llm",
+  "prompt": "Create a flat robot arm link plate: overall 160 mm long, 35 mm wide, 6 mm thick. Add two end holes diameter 10 mm centered 12 mm from each end. Add 6 intermediate lightening holes diameter 12 mm evenly spaced along the centerline between the end holes. Use separate sketches for outer plate and holes (REMOVE THROUGH_ALL). Add a 2 mm fillet to all outer edges of the main extrude feature. Validate with onshape_snapshot_partstudio.",
+  "checks": {
+    "require_volume_positive": true,
+    "delta_volume_m3": [1e-8, 1e-1],
+    "bbox_mm": {
+      "x": [130, 210],
+      "y": [25, 70],
+      "z": [4, 20]
+    }
+  }
+}

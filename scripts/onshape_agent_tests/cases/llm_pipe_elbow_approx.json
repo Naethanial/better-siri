@@ -1,0 +1,14 @@
+{
+  "id": "llm_pipe_elbow_approx",
+  "kind": "llm",
+  "prompt": "Approximate a 90-degree pipe elbow using simple primitives: create two cylinders (radius 15 mm, depth 80 mm) intersecting at right angles with their ends overlapping by ~20 mm (ADD) to form an elbow-like shape. Then hollow it by cutting a coaxial inner cylinder (radius 12 mm) THROUGH_ALL for each branch. Use explicit units and validate with onshape_snapshot_partstudio.",
+  "checks": {
+    "require_volume_positive": true,
+    "delta_volume_m3": [1e-8, 1e-1],
+    "bbox_mm": {
+      "x": [20, 80],
+      "y": [60, 140],
+      "z": [60, 140]
+    }
+  }
+}

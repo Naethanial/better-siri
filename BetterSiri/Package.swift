@@ -23,6 +23,7 @@ let package = Package(
             exclude: ["Resources/Info.plist"],
             resources: [
                 .process("Resources/BrowserAgent"),
+                .process("Resources/OnShapeAgent"),
                 .process("Resources/KaTeX")
             ]
         )

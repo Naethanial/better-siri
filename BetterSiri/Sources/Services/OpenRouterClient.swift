@@ -251,6 +251,13 @@ struct OpenRouterReasoning: Codable {
 
 struct OpenRouterStreamResponse: Codable {
     let choices: [Choice]?
+    let error: APIError?
+
+    struct APIError: Codable {
+        let message: String?
+        let type: String?
+        let code: String?
+    }
 
     struct Choice: Codable {
         let delta: Delta?
@@ -293,6 +300,12 @@ enum OpenRouterStreamToken: Sendable, Equatable {
 actor OpenRouterClient {
     private let baseURL = URL(string: "https://openrouter.ai/api/v1/chat/completions")!
 
+    private struct HTTPFailure: Error {
+        let statusCode: Int
+        let message: String?
+        let body: String?
+    }
+
     func streamCompletion(
         messages: [OpenRouterMessage],
         apiKey: String,
@@ -317,27 +330,37 @@ actor OpenRouterClient {
                         toolChoice: toolChoice
                     )
 
-                    var request = URLRequest(url: baseURL)
-                    request.httpMethod = "POST"
-                    request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-                    request.setValue("BetterSiri/1.0", forHTTPHeaderField: "HTTP-Referer")
-                    request.setValue("Better Siri", forHTTPHeaderField: "X-Title")
-                    request.httpBody = try JSONEncoder().encode(requestBody)
+                    let maxAttempts = 3
+                    var attempt = 0
+                    var didYieldAnyTokens = false
 
-                    // Start the streaming request
-                    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+                    while true {
+                        do {
+                            var request = URLRequest(url: baseURL)
+                            request.httpMethod = "POST"
+                            request.timeoutInterval = 300
+                            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+                            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                            request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                            request.setValue("BetterSiri/1.0", forHTTPHeaderField: "HTTP-Referer")
+                            request.setValue("Better Siri", forHTTPHeaderField: "X-Title")
+                            request.httpBody = try JSONEncoder().encode(requestBody)
 
-                    guard let httpResponse = response as? HTTPURLResponse else {
-                        throw OpenRouterError.invalidResponse
-                    }
+                            // Start the streaming request
+                            let (bytes, response) = try await URLSession.shared.bytes(for: request)
 
-                    guard httpResponse.statusCode == 200 else {
-                        AppLog.shared.log("OpenRouter HTTP error: \(httpResponse.statusCode)", level: .error)
-                        throw OpenRouterError.httpError(httpResponse.statusCode)
-                    }
+                            guard let httpResponse = response as? HTTPURLResponse else {
+                                throw OpenRouterError.invalidResponse
+                            }
 
-                    // Process the SSE stream
+                            guard httpResponse.statusCode == 200 else {
+                                let body = try? await readAll(bytes: bytes, limitBytes: 64_000)
+                                let msg = body.flatMap { parseOpenRouterErrorMessage(from: $0) }
+                                AppLog.shared.log("OpenRouter HTTP error: \(httpResponse.statusCode)\(msg.map { ": \($0)" } ?? "")", level: .error)
+                                throw HTTPFailure(statusCode: httpResponse.statusCode, message: msg, body: body)
+                            }
+
+                            // Process the SSE stream
                     struct ToolCallBuilder {
                         var id: String?
                         var name: String?
@@ -346,65 +369,99 @@ actor OpenRouterClient {
 
                     var toolCallBuilders: [Int: ToolCallBuilder] = [:]
 
-                    for try await line in bytes.lines {
-                        if line.hasPrefix("data: ") {
-                            let jsonString = String(line.dropFirst(6))
+                            for try await line in bytes.lines {
+                                if Task.isCancelled {
+                                    break
+                                }
+                                if line.hasPrefix("data: ") {
+                                    let jsonString = String(line.dropFirst(6))
 
-                            if jsonString == "[DONE]" {
-                                break
-                            }
-
-                            guard let data = jsonString.data(using: .utf8) else { continue }
-                            guard let streamResponse = try? JSONDecoder().decode(OpenRouterStreamResponse.self, from: data) else { continue }
-                            guard let choice = streamResponse.choices?.first else { continue }
-                            guard let delta = choice.delta else { continue }
-
-                            if let content = delta.content, !content.isEmpty {
-                                continuation.yield(.content(content))
-                            }
-
-                            if let reasoningText = extractReasoningText(from: delta), !reasoningText.isEmpty {
-                                continuation.yield(.reasoning(reasoningText))
-                            }
-
-                            if let toolCallDeltas = delta.toolCalls {
-                                for callDelta in toolCallDeltas {
-                                    let idx = callDelta.index ?? 0
-                                    var builder = toolCallBuilders[idx] ?? ToolCallBuilder()
-                                    if let id = callDelta.id {
-                                        builder.id = id
+                                    if jsonString == "[DONE]" {
+                                        break
                                     }
-                                    if let name = callDelta.function?.name {
-                                        builder.name = name
+
+                                    guard let data = jsonString.data(using: .utf8) else { continue }
+                                    guard let streamResponse = try? JSONDecoder().decode(OpenRouterStreamResponse.self, from: data) else { continue }
+
+                                    if let apiError = streamResponse.error {
+                                        let message = apiError.message ?? "Unknown streaming error"
+                                        throw OpenRouterError.apiError(message: message, type: apiError.type, code: apiError.code)
                                     }
-                                    if let args = callDelta.function?.arguments {
-                                        builder.arguments += args
+
+                                    guard let choice = streamResponse.choices?.first else { continue }
+                                    guard let delta = choice.delta else { continue }
+
+                                    if let content = delta.content, !content.isEmpty {
+                                        didYieldAnyTokens = true
+                                        continuation.yield(.content(content))
                                     }
-                                    toolCallBuilders[idx] = builder
+
+                                    if let reasoningText = extractReasoningText(from: delta), !reasoningText.isEmpty {
+                                        didYieldAnyTokens = true
+                                        continuation.yield(.reasoning(reasoningText))
+                                    }
+
+                                    if let toolCallDeltas = delta.toolCalls {
+                                        for callDelta in toolCallDeltas {
+                                            let idx = callDelta.index ?? 0
+                                            var builder = toolCallBuilders[idx] ?? ToolCallBuilder()
+                                            if let id = callDelta.id {
+                                                builder.id = id
+                                            }
+                                            if let name = callDelta.function?.name {
+                                                builder.name = name
+                                            }
+                                            if let args = callDelta.function?.arguments {
+                                                builder.arguments += args
+                                            }
+                                            toolCallBuilders[idx] = builder
+                                        }
+                                    }
+
+                                    if choice.finish_reason == "tool_calls" {
+                                        let calls: [OpenRouterToolCall] = toolCallBuilders
+                                            .sorted(by: { $0.key < $1.key })
+                                            .compactMap { _, builder in
+                                                guard let id = builder.id, let name = builder.name else { return nil }
+                                                return OpenRouterToolCall(
+                                                    type: "function",
+                                                    index: nil,
+                                                    id: id,
+                                                    function: .init(name: name, arguments: builder.arguments)
+                                                )
+                                            }
+
+                                        didYieldAnyTokens = true
+                                        continuation.yield(.toolCalls(calls))
+                                        break
+                                    }
                                 }
                             }
 
-                            if choice.finish_reason == "tool_calls" {
-                                let calls: [OpenRouterToolCall] = toolCallBuilders
-                                    .sorted(by: { $0.key < $1.key })
-                                    .compactMap { _, builder in
-                                        guard let id = builder.id, let name = builder.name else { return nil }
-                                        return OpenRouterToolCall(
-                                            type: "function",
-                                            index: nil,
-                                            id: id,
-                                            function: .init(name: name, arguments: builder.arguments)
-                                        )
-                                    }
-
-                                continuation.yield(.toolCalls(calls))
-                                break
+                            continuation.finish()
+                            AppLog.shared.log("OpenRouter stream finished")
+                            break
+                        } catch let failure as HTTPFailure {
+                            attempt += 1
+                            let err = OpenRouterError.httpError(statusCode: failure.statusCode, message: failure.message, body: failure.body)
+                            if attempt < maxAttempts, !didYieldAnyTokens, isRetriable(err) {
+                                let delay = retryDelaySeconds(forAttempt: attempt)
+                                AppLog.shared.log("OpenRouter retrying after HTTP \(failure.statusCode) (attempt \(attempt + 1)/\(maxAttempts), delay \(delay)s)", level: .debug)
+                                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                                continue
                             }
+                            throw err
+                        } catch {
+                            attempt += 1
+                            if attempt < maxAttempts, !didYieldAnyTokens, isRetriable(error) {
+                                let delay = retryDelaySeconds(forAttempt: attempt)
+                                AppLog.shared.log("OpenRouter retrying after error (attempt \(attempt + 1)/\(maxAttempts), delay \(delay)s): \(error)", level: .debug)
+                                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                                continue
+                            }
+                            throw error
                         }
                     }
-
-                    continuation.finish()
-                    AppLog.shared.log("OpenRouter stream finished")
 
                 } catch {
                     AppLog.shared.log("OpenRouter stream failed: \(error)", level: .error)
@@ -412,6 +469,76 @@ actor OpenRouterClient {
                 }
             }
         }
+    }
+
+    private func isRetriable(_ error: Error) -> Bool {
+        if let urlError = error as? URLError {
+            switch urlError.code {
+            case .timedOut, .cannotFindHost, .cannotConnectToHost, .networkConnectionLost, .dnsLookupFailed,
+                 .notConnectedToInternet, .internationalRoamingOff, .callIsActive, .dataNotAllowed,
+                 .secureConnectionFailed, .cannotLoadFromNetwork:
+                return true
+            case .cancelled:
+                return false
+            default:
+                return false
+            }
+        }
+
+        if let err = error as? OpenRouterError {
+            switch err {
+            case .httpError(let statusCode, _, _):
+                return [429, 500, 502, 503, 504].contains(statusCode)
+            case .apiError:
+                return true
+            case .invalidResponse:
+                return true
+            case .imageEncodingFailed, .imageTooLarge:
+                return false
+            }
+        }
+
+        return false
+    }
+
+    private func retryDelaySeconds(forAttempt attempt: Int) -> Double {
+        // attempt: 1 => ~1s, 2 => ~2s
+        let base = pow(2.0, Double(max(0, attempt - 1)))
+        let jitter = Double.random(in: 0.0...0.25)
+        return min(8.0, base + jitter)
+    }
+
+    private func readAll(bytes: URLSession.AsyncBytes, limitBytes: Int) async throws -> String {
+        var data = Data()
+        data.reserveCapacity(min(4096, limitBytes))
+
+        for try await b in bytes {
+            if data.count >= limitBytes {
+                break
+            }
+            data.append(b)
+        }
+        return String(data: data, encoding: .utf8) ?? ""
+    }
+
+    private func parseOpenRouterErrorMessage(from body: String) -> String? {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        guard let data = trimmed.data(using: .utf8) else { return nil }
+
+        struct Envelope: Decodable {
+            struct APIError: Decodable {
+                let message: String?
+            }
+            let error: APIError?
+        }
+
+        if let env = try? JSONDecoder().decode(Envelope.self, from: data) {
+            return env.error?.message
+        }
+
+        // Fallback: keep only the first line if it's not JSON.
+        return trimmed.split(separator: "\n").first.map(String.init)
     }
 
     private func extractReasoningText(from delta: OpenRouterStreamResponse.Delta) -> String? {
@@ -458,28 +585,131 @@ actor OpenRouterClient {
     }
 
     func encodeImageToBase64(_ image: CGImage) throws -> String {
-        let data = NSMutableData()
-        guard let destination = CGImageDestinationCreateWithData(data, UTType.jpeg.identifier as CFString, 1, nil) else {
-            throw OpenRouterError.imageEncodingFailed
+        // OpenRouter payloads can get huge when tool mode adds extra screenshots.
+        // Downscale + compress aggressively to reduce flaky HTTP failures.
+        let resized = downscale(image: image, maxDimension: 1280)
+        let maxBytes = 2_500_000
+
+        let qualities: [CGFloat] = [0.65, 0.5, 0.35]
+        var lastData: Data? = nil
+
+        for q in qualities {
+            let out = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(out, UTType.jpeg.identifier as CFString, 1, nil) else {
+                throw OpenRouterError.imageEncodingFailed
+            }
+
+            let options: [CFString: Any] = [
+                kCGImageDestinationLossyCompressionQuality: q
+            ]
+            CGImageDestinationAddImage(destination, resized, options as CFDictionary)
+            guard CGImageDestinationFinalize(destination) else {
+                throw OpenRouterError.imageEncodingFailed
+            }
+
+            let data = out as Data
+            lastData = data
+            if data.count <= maxBytes {
+                return data.base64EncodedString()
+            }
         }
 
-        // Compress the image to reduce size
-        let options: [CFString: Any] = [
-            kCGImageDestinationLossyCompressionQuality: 0.7
-        ]
+        if let lastData {
+            throw OpenRouterError.imageTooLarge(byteCount: lastData.count)
+        }
+        throw OpenRouterError.imageEncodingFailed
+    }
 
-        CGImageDestinationAddImage(destination, image, options as CFDictionary)
+    private func downscale(image: CGImage, maxDimension: Int) -> CGImage {
+        let w = image.width
+        let h = image.height
+        let maxSide = max(w, h)
+        guard maxSide > maxDimension, maxSide > 0 else { return image }
 
-        guard CGImageDestinationFinalize(destination) else {
-            throw OpenRouterError.imageEncodingFailed
+        let scale = CGFloat(maxDimension) / CGFloat(maxSide)
+        let newW = max(1, Int((CGFloat(w) * scale).rounded(.toNearestOrAwayFromZero)))
+        let newH = max(1, Int((CGFloat(h) * scale).rounded(.toNearestOrAwayFromZero)))
+
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
+
+        guard let ctx = CGContext(
+            data: nil,
+            width: newW,
+            height: newH,
+            bitsPerComponent: 8,
+            bytesPerRow: 0,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo
+        ) else {
+            return image
         }
 
-        return (data as Data).base64EncodedString()
+        ctx.interpolationQuality = .high
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: newW, height: newH))
+        return ctx.makeImage() ?? image
     }
 }
 
-enum OpenRouterError: Error {
+enum OpenRouterError: Error, LocalizedError, CustomNSError {
     case invalidResponse
-    case httpError(Int)
+    case httpError(statusCode: Int, message: String? = nil, body: String? = nil)
+    case apiError(message: String, type: String? = nil, code: String? = nil)
     case imageEncodingFailed
+    case imageTooLarge(byteCount: Int)
+
+    static var errorDomain: String { "BetterSiri.OpenRouter" }
+
+    var errorCode: Int {
+        switch self {
+        case .invalidResponse:
+            return 1
+        case .httpError(let statusCode, _, _):
+            return statusCode
+        case .apiError:
+            return 2
+        case .imageEncodingFailed:
+            return 3
+        case .imageTooLarge:
+            return 4
+        }
+    }
+
+    var errorUserInfo: [String: Any] {
+        switch self {
+        case .httpError(_, let message, let body):
+            var info: [String: Any] = [:]
+            if let message { info[NSLocalizedDescriptionKey] = message }
+            if let body { info["body"] = body }
+            return info
+        case .apiError(let message, let type, let code):
+            var info: [String: Any] = [NSLocalizedDescriptionKey: message]
+            if let type { info["type"] = type }
+            if let code { info["code"] = code }
+            return info
+        case .imageTooLarge(let byteCount):
+            return ["byteCount": byteCount]
+        default:
+            return [:]
+        }
+    }
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidResponse:
+            return "OpenRouter: invalid response from server."
+        case .httpError(let statusCode, let message, _):
+            if let message, !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return "OpenRouter: HTTP \(statusCode) - \(message)"
+            }
+            return "OpenRouter: HTTP \(statusCode)."
+        case .apiError(let message, _, _):
+            return "OpenRouter: \(message)"
+        case .imageEncodingFailed:
+            return "Failed to encode image for the model."
+        case .imageTooLarge(let byteCount):
+            let mb = Double(byteCount) / 1_000_000.0
+            return String(format: "Image is too large to send (%.1f MB).", mb)
+        }
+    }
 }

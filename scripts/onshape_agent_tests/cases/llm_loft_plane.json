@@ -1,0 +1,8 @@
+{
+  "id": "llm_loft_plane",
+  "kind": "llm",
+  "prompt": "Create a lofted transition: \n1) In a new Part Studio, create a 20mm circle on the Top plane.\n2) Create a new plane offset from the Top plane by 50mm.\n3) On the new plane, create a 40mm x 40mm square centered at the origin.\n4) Loft between the circle and the square.\nUse explicit mm units.",
+  "checks": {
+    "require_volume_positive": true
+  }
+}

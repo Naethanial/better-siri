@@ -1,0 +1,186 @@
+{
+  "case_id": "llm_unit_sanity_100mm_cube",
+  "kind": "llm",
+  "ok": false,
+  "error": "delta_volume_missing",
+  "tool_errors": 0,
+  "tool_calls": 2,
+  "snapshot": {
+    "did": "89a3e2e598f9ad2ace0fb496",
+    "wvm": "w",
+    "wvmid": "8c522fba543883263f4d1645",
+    "eid": "d6ff6f42703683642d512b2f",
+    "bounding_boxes": {
+      "lowX": 0.0,
+      "lowY": 0.0,
+      "lowZ": 0.0,
+      "highX": 0.1,
+      "highY": 0.1,
+      "highZ": 0.1
+    },
+    "mass_properties": {
+      "microversionId": "37615c6deed9b2956e137c0f",
+      "bodies": {
+        "-all-": {
+          "mass": [
+            0.0,
+            -1e-08,
+            1e-08
+          ],
+          "volume": [
+            0.0010000000000000002,
+            0.0009999900000000003,
+            0.0010000100000000002
+          ],
+          "periphery": [
+            0.06000000000000001,
+            0.05999990000000001,
+            0.060000100000000015
+          ],
+          "centroid": [
+            0.0,
+            0.0,
+            0.0,
+            -1e-06,
+            -1e-06,
+            -1e-06,
+            1e-06,
+            1e-06,
+            1e-06
+          ],
+          "inertia": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            -1e-09,
+            -1e-09,
+            -1e-09,
+            -1e-09,
+            -1e-09,
+            -1e-09,
+            -1e-09,
+            -1e-09,
+            -1e-09,
+            1e-09,
+            1e-09,
+            1e-09,
+            1e-09,
+            1e-09,
+            1e-09,
+            1e-09,
+            1e-09,
+            1e-09
+          ],
+          "hasMass": false,
+          "massMissingCount": 1,
+          "principalInertia": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "principalAxes": [
+            {
+              "btType": "BTVector3d-389",
+              "y": 0.0,
+              "x": 1.0,
+              "z": 0.0
+            },
+            {
+              "btType": "BTVector3d-389",
+              "y": 1.0,
+              "x": 0.0,
+              "z": 0.0
+            },
+            {
+              "btType": "BTVector3d-389",
+              "y": 0.0,
+              "x": 0.0,
+              "z": 1.0
+            }
+          ]
+        }
+      }
+    },
+    "gltf": {
+      "path": "/var/folders/jp/k76bwhg92qvbr206nhqjmsnw0000gp/T/bettersiri_onshape_65c371108da043a184eba4d0850becb7.glb",
+      "bytes": 2268
+    },
+    "gltf_error": null
+  },
+  "bbox_mm": {
+    "x": 100.0,
+    "y": 100.0,
+    "z": 100.0,
+    "lowX": 0.0,
+    "lowY": 0.0,
+    "lowZ": 0.0,
+    "highX": 100.0,
+    "highY": 100.0,
+    "highZ": 100.0
+  },
+  "volume_m3": 0.0010000000000000002,
+  "artifacts": {
+    "gltf": "/Users/superudmarts/Desktop/cluely/scripts/onshape_agent_tests/runs/20260126_015504/artifacts/llm_unit_sanity_100mm_cube/bettersiri_onshape_65c371108da043a184eba4d0850becb7.glb"
+  },
+  "transcript": [
+    {
+      "type": "attachments",
+      "debug": []
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_create_cube",
+      "arguments": {
+        "name": "Cube",
+        "side_length": "100 mm"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_create_cube",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "onshape_snapshot_partstudio",
+      "arguments": {}
+    },
+    {
+      "type": "tool_result",
+      "name": "onshape_snapshot_partstudio",
+      "ok": true
+    },
+    {
+      "type": "assistant",
+      "content": "I have created a cube with a side length of 100 mm. The bounding box dimensions are as follows:\n\n- Low X: 0.0 m\n- Low Y: 0.0 m\n- Low Z: 0.0 m\n- High X: 0.1 m\n- High Y: 0.1 m\n- High Z: 0.1 m\n\nThe volume of the cube is approximately 0.001 m\u00b3. \n\nIf you need any further modifications or additional features, please let me know!"
+    }
+  ],
+  "baseline_snapshot": {
+    "did": "89a3e2e598f9ad2ace0fb496",
+    "wvm": "w",
+    "wvmid": "8c522fba543883263f4d1645",
+    "eid": "d6ff6f42703683642d512b2f",
+    "bounding_boxes": {
+      "lowX": 0.0,
+      "lowY": 0.0,
+      "lowZ": 0.0,
+      "highX": 0.0,
+      "highY": 0.0,
+      "highZ": 0.0
+    },
+    "mass_properties": {
+      "microversionId": "9d2507bb8888f506ad755c09",
+      "bodies": {}
+    },
+    "gltf": null,
+    "gltf_error": "OnShape HTTP 400: {\n  \"moreInfoUrl\" : \"\",\n  \"message\" : \"An illegal argument was provided, check your request.\",\n  \"status\" : 400,\n  \"code\" : 0\n}"
+  },
+  "elapsed_s": 11.602645874023438,
+  "new_feature_ids": []
+}

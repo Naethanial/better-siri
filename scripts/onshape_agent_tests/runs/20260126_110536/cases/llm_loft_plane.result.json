@@ -1,0 +1,215 @@
+{
+  "case_id": "llm_loft_plane",
+  "kind": "llm",
+  "ok": false,
+  "error": "Exceeded max_tool_iters=10",
+  "tool_errors": 6,
+  "tool_calls": 12,
+  "snapshot": null,
+  "bbox_mm": null,
+  "volume_m3": null,
+  "artifacts": {},
+  "transcript": [
+    {
+      "type": "attachments",
+      "debug": []
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_create_partstudio",
+      "arguments": {
+        "name": "Lofted Transition"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_create_partstudio",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_create_circle_sketch",
+      "arguments": {
+        "name": "Circle Sketch",
+        "plane": "Top",
+        "radius": "20 mm",
+        "x_center": "0 mm",
+        "y_center": "0 mm"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_create_circle_sketch",
+      "ok": false,
+      "error": "OnShape HTTP 404: {'moreInfoUrl': '', 'message': 'Not found.', 'status': 404, 'code': 0}"
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_create_plane",
+      "arguments": {
+        "offset": "50 mm",
+        "base_query": "Top",
+        "name": "Offset Plane"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_create_plane",
+      "ok": false,
+      "error": "OnShape HTTP 404: {'moreInfoUrl': '', 'message': 'Not found.', 'status': 404, 'code': 0}"
+    },
+    {
+      "type": "tool_call",
+      "name": "onshape_switch_to_element",
+      "arguments": {}
+    },
+    {
+      "type": "tool_result",
+      "name": "onshape_switch_to_element",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "onshape_get_document_workspaces",
+      "arguments": {}
+    },
+    {
+      "type": "tool_result",
+      "name": "onshape_get_document_workspaces",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "onshape_get_parts",
+      "arguments": {}
+    },
+    {
+      "type": "tool_result",
+      "name": "onshape_get_parts",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "onshape_get_element_metadata",
+      "arguments": {}
+    },
+    {
+      "type": "tool_result",
+      "name": "onshape_get_element_metadata",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_create_circle_sketch",
+      "arguments": {
+        "name": "Circle Sketch",
+        "plane": "Top",
+        "radius": "20 mm",
+        "x_center": "0 mm",
+        "y_center": "0 mm"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_create_circle_sketch",
+      "ok": false,
+      "error": "OnShape HTTP 404: {'moreInfoUrl': '', 'message': 'Not found.', 'status': 404, 'code': 0}"
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_create_plane",
+      "arguments": {
+        "offset": "50 mm",
+        "base_query": "Top",
+        "name": "Offset Plane"
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_create_plane",
+      "ok": false,
+      "error": "OnShape HTTP 404: {'moreInfoUrl': '', 'message': 'Not found.', 'status': 404, 'code': 0}"
+    },
+    {
+      "type": "tool_call",
+      "name": "onshape_get_partstudio_bounding_boxes",
+      "arguments": {}
+    },
+    {
+      "type": "tool_result",
+      "name": "onshape_get_partstudio_bounding_boxes",
+      "ok": true
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_create_sketch",
+      "arguments": {
+        "name": "Circle Sketch",
+        "plane": "Top",
+        "circles": [
+          {
+            "cx": "0 mm",
+            "cy": "0 mm",
+            "radius": "20 mm",
+            "construction": false
+          }
+        ]
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_create_sketch",
+      "ok": false,
+      "error": "OnShape HTTP 404: {'moreInfoUrl': '', 'message': 'Not found.', 'status': 404, 'code': 0}"
+    },
+    {
+      "type": "tool_call",
+      "name": "cad_create_sketch",
+      "arguments": {
+        "name": "Circle Sketch",
+        "plane": "Top",
+        "circles": [
+          {
+            "cx": "0 mm",
+            "cy": "0 mm",
+            "radius": "20 mm",
+            "construction": false
+          }
+        ]
+      }
+    },
+    {
+      "type": "tool_result",
+      "name": "cad_create_sketch",
+      "ok": false,
+      "error": "OnShape HTTP 404: {'moreInfoUrl': '', 'message': 'Not found.', 'status': 404, 'code': 0}"
+    }
+  ],
+  "baseline_snapshot": {
+    "did": "89a3e2e598f9ad2ace0fb496",
+    "wvm": "w",
+    "wvmid": "8c522fba543883263f4d1645",
+    "eid": "fd35bd41afc0435760f44e12",
+    "elementType": "PARTSTUDIO",
+    "metadata": {
+      "partCount": 0,
+      "partNames": []
+    },
+    "bounding_boxes": {
+      "lowX": 0.0,
+      "lowY": 0.0,
+      "lowZ": 0.0,
+      "highX": 0.0,
+      "highY": 0.0,
+      "highZ": 0.0
+    },
+    "mass_properties": {
+      "microversionId": "f0edebf2e6304fce7dfb81c1",
+      "bodies": {}
+    },
+    "gltf": null,
+    "gltf_error": "OnShape HTTP 400: {\n  \"moreInfoUrl\" : \"\",\n  \"message\" : \"An illegal argument was provided, check your request.\",\n  \"status\" : 400,\n  \"code\" : 0\n}"
+  },
+  "elapsed_s": 39.933939933776855,
+  "new_feature_ids": []
+}

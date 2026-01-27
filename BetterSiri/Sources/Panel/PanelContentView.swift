@@ -136,8 +136,13 @@ struct PanelContentView: View {
             // Input area
             ChatInputView(
                 text: $viewModel.inputText,
+                attachments: $viewModel.pendingAttachments,
                 isBrowserModeEnabled: $viewModel.isBrowserModeEnabled,
+                isOnShapeModeEnabled: $viewModel.isOnShapeModeEnabled,
                 isStreaming: viewModel.isStreaming,
+                onAddAttachments: { urls in
+                    viewModel.addPendingAttachments(fileURLs: urls)
+                },
                 onStop: {
                     viewModel.cancelStreaming()
                 },

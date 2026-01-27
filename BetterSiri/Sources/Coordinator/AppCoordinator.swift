@@ -129,7 +129,7 @@ class AppCoordinator: ObservableObject {
 
         let trimmedMessages = chatViewModel.messages
             .map { msg in
-                ChatMessage(id: msg.id, role: msg.role, content: msg.content, timestamp: msg.timestamp)
+                ChatMessage(id: msg.id, role: msg.role, content: msg.content, attachments: msg.attachments, timestamp: msg.timestamp)
             }
             .filter { !$0.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
 
@@ -236,6 +236,7 @@ class AppCoordinator: ObservableObject {
         closePanel()
         Task {
             await BrowserUseWorker.shared.stopProcess()
+            await OnShapeMcpWorker.shared.stopProcess()
         }
     }
 
