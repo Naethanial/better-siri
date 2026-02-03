@@ -25,6 +25,10 @@ chmod +x ../BetterSiri.app/Contents/MacOS/BetterSiri
 # Copy SwiftPM resource bundles (BetterSiri + dependencies)
 cp -R .build/release/*.bundle ../BetterSiri.app/Contents/Resources/ 2>/dev/null || true
 
+# Extra safety: ensure the BrowserAgent worker script is present in the app bundle.
+# (Some build setups can miss new SwiftPM resources without a clean build.)
+cp Sources/Resources/BrowserAgent/browser_use_worker.py ../BetterSiri.app/Contents/Resources/browser_use_worker.py 2>/dev/null || true
+
 echo "Build complete!"
 echo ""
 echo "App bundle is at: $(dirname "$0")/BetterSiri.app"

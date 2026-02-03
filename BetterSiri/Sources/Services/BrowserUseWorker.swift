@@ -136,6 +136,61 @@ actor BrowserUseWorker {
         process?.isRunning == true
     }
 
+    private func resolveWorkerScriptURL() throws -> URL {
+        let fileName = "browser_use_worker"
+        let ext = "py"
+
+        // Preferred: SwiftPM resources embedded in the module bundle.
+        if let url = Bundle.module.url(forResource: fileName, withExtension: ext) {
+            return url
+        }
+
+        // Fall back to common subdirectory layouts (in case resources are reorganized).
+        let subdirs = ["BrowserAgent", "Resources/BrowserAgent"]
+        for subdir in subdirs {
+            if let url = Bundle.module.url(forResource: fileName, withExtension: ext, subdirectory: subdir) {
+                return url
+            }
+        }
+
+        // Packaging fallback: allow the script to live in the app's main Resources dir.
+        if let url = Bundle.main.url(forResource: fileName, withExtension: ext) {
+            return url
+        }
+        for subdir in subdirs {
+            if let url = Bundle.main.url(forResource: fileName, withExtension: ext, subdirectory: subdir) {
+                return url
+            }
+        }
+
+        // Last resort: scan Bundle.module for a matching filename.
+        // This is intentionally best-effort and only runs on startup.
+        let expected = "\(fileName).\(ext)"
+        if let enumerator = FileManager.default.enumerator(
+            at: Bundle.module.bundleURL,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles]
+        ) {
+            for case let url as URL in enumerator {
+                if url.lastPathComponent == expected {
+                    return url
+                }
+            }
+        }
+
+        let pyFiles = (Bundle.module.urls(forResourcesWithExtension: ext, subdirectory: nil) ?? [])
+            .map { $0.lastPathComponent }
+            .sorted()
+        let bundlePath = Bundle.module.bundleURL.path
+        let pyList = pyFiles.isEmpty ? "(none)" : pyFiles.joined(separator: ", ")
+        AppLog.shared.log(
+            "BrowserUseWorker: missing browser_use_worker.py. Bundle.module at \(bundlePath). Found .py files: \(pyList)",
+            level: .error
+        )
+
+        throw BrowserUseWorkerError.resourceMissing("browser_use_worker.py")
+    }
+
     func startIfNeeded(browserUseApiKey: String?) throws {
         if isRunning {
             // If the user added/changed the API key after startup, restart the worker
@@ -147,9 +202,7 @@ actor BrowserUseWorker {
             }
         }
 
-        guard let scriptURL = Bundle.module.url(forResource: "browser_use_worker", withExtension: "py") else {
-            throw BrowserUseWorkerError.resourceMissing("Resources/BrowserAgent/browser_use_worker.py")
-        }
+        let scriptURL = try resolveWorkerScriptURL()
 
         let process = Process()
 
