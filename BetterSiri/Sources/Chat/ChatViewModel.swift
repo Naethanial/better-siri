@@ -52,6 +52,15 @@ class ChatViewModel: ObservableObject {
     @AppStorage("perplexity_apiKey") private var perplexityApiKey: String = ""
     @AppStorage("browser_use_apiKey") private var browserUseApiKey: String = ""
     @AppStorage("browser_agent_keepSession") private var browserAgentKeepSession: Bool = true
+    @AppStorage("browser_agent_browserAppId") private var browserAgentBrowserAppId: String = ChromiumBrowserAppId.chrome.rawValue
+    @AppStorage("browser_agent_customExecutablePath") private var browserAgentCustomExecutablePath: String = ""
+    @AppStorage("browser_agent_profileRootMode") private var browserAgentProfileRootMode: String = "real"
+    @AppStorage("browser_agent_customUserDataDir") private var browserAgentCustomUserDataDir: String = ""
+    @AppStorage("browser_agent_profileDirectory") private var browserAgentProfileDirectory: String = "Default"
+    @AppStorage("browser_agent_autoOpenDevTools") private var browserAgentAutoOpenDevTools: Bool = true
+    @AppStorage("browser_agent_includeTabContext") private var browserAgentIncludeTabContext: Bool = false
+    @AppStorage("browser_agent_includeActiveTabText") private var browserAgentIncludeActiveTabText: Bool = false
+    @AppStorage("browser_use_cloud_model") private var browserUseCloudModel: String = "bu-2-0"
     @AppStorage("gemini_enableUrlContext") private var geminiEnableUrlContext: Bool = true
     @AppStorage("gemini_enableCodeExecution") private var geminiEnableCodeExecution: Bool = true
 
@@ -128,12 +137,16 @@ class ChatViewModel: ObservableObject {
                 if shouldUseBrowser {
                     do {
                         updateTrace(.openingBrowser, status: .active)
-                        let userDataDir = try ensureBrowserUserDataDirectory()
+                        let cfg = try resolveBrowserAgentLaunchConfig()
                         updateTrace(.browsing, status: .active, detail: "Starting")
                         browserContext = try await BrowserUseWorker.shared.runTask(
                             browserUseApiKey: browserUseApiKey,
-                            userDataDir: userDataDir,
-                            keepSession: browserAgentKeepSession,
+                            userDataDir: cfg.userDataDir,
+                            keepSession: cfg.keepSession,
+                            chromeExecutablePath: cfg.chromeExecutablePath,
+                            profileDirectory: cfg.profileDirectory,
+                            chromeArgs: cfg.chromeArgs,
+                            browserUseModel: cfg.browserUseModel,
                             task: trimmedInput,
                             onEvent: { [weak self] event in
                                 Task { @MainActor in
@@ -183,6 +196,26 @@ class ChatViewModel: ObservableObject {
                     }
                 }
 
+                // Read-only browser tab context (Assistant Browser), even when automation is off.
+                var tabContext: BrowserTabContext? = nil
+                if browserAgentIncludeTabContext {
+                    do {
+                        let cfg = try resolveBrowserAgentLaunchConfig()
+                        tabContext = try await BrowserUseWorker.shared.getTabContext(
+                            browserUseApiKey: browserUseApiKey,
+                            userDataDir: cfg.userDataDir,
+                            keepSession: cfg.keepSession,
+                            chromeExecutablePath: cfg.chromeExecutablePath,
+                            profileDirectory: cfg.profileDirectory,
+                            chromeArgs: cfg.chromeArgs,
+                            includeActiveText: browserAgentIncludeActiveTabText,
+                            maxChars: 1800
+                        )
+                    } catch {
+                        AppLog.shared.log("Failed to read browser tab context: \(error)", level: .error)
+                    }
+                }
+
                 // Prepare messages for API
                 var apiMessages: [OpenRouterMessage] = []
 
@@ -207,6 +240,36 @@ class ChatViewModel: ObservableObject {
                 if let browserContext = browserContext {
                     systemPrompt +=
                         "\n\nYou also have the following browser automation transcript/output. Use it as factual context for what happened in the browser. If it includes URLs or page titles, you can cite them.\n\n\(browserContext)"
+                }
+
+                if let tabContext {
+                    systemPrompt += "\n\nBrowser Tabs Context (Assistant Browser):\n"
+                    if let active = tabContext.activeIndex {
+                        systemPrompt += "- Active tab index: \(active)\n"
+                    }
+                    if !tabContext.tabs.isEmpty {
+                        systemPrompt += "- Tabs:\n"
+                        for tab in tabContext.tabs.prefix(24) {
+                            let title = (tab.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                            let url = (tab.url ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                            if !title.isEmpty && !url.isEmpty {
+                                systemPrompt += "  [\(tab.index)] \(title) — \(url)\n"
+                            } else if !title.isEmpty {
+                                systemPrompt += "  [\(tab.index)] \(title)\n"
+                            } else if !url.isEmpty {
+                                systemPrompt += "  [\(tab.index)] \(url)\n"
+                            } else {
+                                systemPrompt += "  [\(tab.index)] (untitled)\n"
+                            }
+                        }
+                        if tabContext.tabs.count > 24 {
+                            systemPrompt += "  …and \(tabContext.tabs.count - 24) more\n"
+                        }
+                    }
+                    if let excerpt = tabContext.activeTextExcerpt,
+                       !excerpt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        systemPrompt += "\nActive tab text excerpt:\n\(excerpt)\n"
+                    }
                 }
 
                 apiMessages.append(
@@ -241,6 +304,10 @@ class ChatViewModel: ObservableObject {
 
                 if !perplexityApiKey.isEmpty {
                     enabledTools.append(.function(perplexitySearchToolSpec()))
+                }
+                if browserAgentIncludeTabContext {
+                    enabledTools.append(.function(browserListTabsToolSpec()))
+                    enabledTools.append(.function(browserReadTabToolSpec()))
                 }
 
                 updateTrace(.startingResponse, status: .active)
@@ -552,6 +619,52 @@ class ChatViewModel: ObservableObject {
         let max_results: Int?
     }
 
+    private func browserListTabsToolSpec() -> OpenRouterFunctionTool {
+        OpenRouterFunctionTool(
+            name: "browser_list_tabs",
+            description: "List open tabs in the Assistant Browser (titles + URLs).",
+            parameters: .object([
+                "type": .string("object"),
+                "properties": .object([
+                    "include_active_text": .object([
+                        "type": .string("boolean"),
+                        "description": .string("Whether to include an excerpt of the active tab text")
+                    ])
+                ])
+            ])
+        )
+    }
+
+    private func browserReadTabToolSpec() -> OpenRouterFunctionTool {
+        OpenRouterFunctionTool(
+            name: "browser_read_tab",
+            description: "Read visible text from a specific tab index in the Assistant Browser.",
+            parameters: .object([
+                "type": .string("object"),
+                "properties": .object([
+                    "index": .object([
+                        "type": .string("integer"),
+                        "description": .string("Tab index to read")
+                    ]),
+                    "max_chars": .object([
+                        "type": .string("integer"),
+                        "description": .string("Maximum characters to return (optional)")
+                    ])
+                ]),
+                "required": .array([.string("index")])
+            ])
+        )
+    }
+
+    private struct BrowserListTabsArgs: Decodable {
+        let include_active_text: Bool?
+    }
+
+    private struct BrowserReadTabArgs: Decodable {
+        let index: Int
+        let max_chars: Int?
+    }
+
     private struct ToolResultPayload: Codable {
         let ok: Bool
         let tool: String
@@ -602,6 +715,109 @@ class ChatViewModel: ObservableObject {
                 return "{\"ok\":false,\"tool\":\"perplexity_search\",\"error\":\"Search failed\"}"
             }
 
+        case "browser_list_tabs":
+            do {
+                let argsData = Data(call.function.arguments.utf8)
+                let args = (try? JSONDecoder().decode(BrowserListTabsArgs.self, from: argsData))
+                let includeText = args?.include_active_text ?? browserAgentIncludeActiveTabText
+
+                let cfg = try resolveBrowserAgentLaunchConfig()
+                let context = try await BrowserUseWorker.shared.getTabContext(
+                    browserUseApiKey: browserUseApiKey,
+                    userDataDir: cfg.userDataDir,
+                    keepSession: cfg.keepSession,
+                    chromeExecutablePath: cfg.chromeExecutablePath,
+                    profileDirectory: cfg.profileDirectory,
+                    chromeArgs: cfg.chromeArgs,
+                    includeActiveText: includeText,
+                    maxChars: 1800
+                )
+
+                let tabsSummary = context.tabs
+                    .sorted(by: { $0.index < $1.index })
+                    .map { tab -> String in
+                        let title = tab.title?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                        let url = tab.url?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                        if !title.isEmpty && !url.isEmpty { return "[\(tab.index)] \(title) — \(url)" }
+                        if !title.isEmpty { return "[\(tab.index)] \(title)" }
+                        if !url.isEmpty { return "[\(tab.index)] \(url)" }
+                        return "[\(tab.index)] (untitled)"
+                    }
+                    .joined(separator: "\n")
+
+                var result = "Open tabs:\n\(tabsSummary)"
+                if includeText, let excerpt = context.activeTextExcerpt, !excerpt.isEmpty {
+                    result += "\n\nActive tab text excerpt:\n\(excerpt)"
+                }
+
+                let payload = ToolResultPayload(
+                    ok: true,
+                    tool: "browser_list_tabs",
+                    query: nil,
+                    result: result,
+                    error: nil
+                )
+                let data = try JSONEncoder().encode(payload)
+                return String(data: data, encoding: .utf8) ?? result
+
+            } catch {
+                AppLog.shared.log("Browser tool failed: \(error)", level: .error)
+                let payload = ToolResultPayload(
+                    ok: false,
+                    tool: "browser_list_tabs",
+                    query: nil,
+                    result: nil,
+                    error: error.localizedDescription
+                )
+                if let data = try? JSONEncoder().encode(payload) {
+                    return String(data: data, encoding: .utf8) ?? payload.error ?? "Browser tool failed"
+                }
+                return "{\"ok\":false,\"tool\":\"browser_list_tabs\",\"error\":\"Browser tool failed\"}"
+            }
+
+        case "browser_read_tab":
+            do {
+                let argsData = Data(call.function.arguments.utf8)
+                let args = try JSONDecoder().decode(BrowserReadTabArgs.self, from: argsData)
+                let maxChars = min(max(args.max_chars ?? 4000, 200), 16000)
+
+                // Ensure the assistant browser is open with the selected profile.
+                let cfg = try resolveBrowserAgentLaunchConfig()
+                try await BrowserUseWorker.shared.openBrowser(
+                    browserUseApiKey: browserUseApiKey,
+                    userDataDir: cfg.userDataDir,
+                    keepSession: cfg.keepSession,
+                    chromeExecutablePath: cfg.chromeExecutablePath,
+                    profileDirectory: cfg.profileDirectory,
+                    chromeArgs: cfg.chromeArgs
+                )
+
+                let text = try await BrowserUseWorker.shared.readTabText(index: args.index, maxChars: maxChars)
+                let payload = ToolResultPayload(
+                    ok: true,
+                    tool: "browser_read_tab",
+                    query: nil,
+                    result: text,
+                    error: nil
+                )
+                let data = try JSONEncoder().encode(payload)
+                return String(data: data, encoding: .utf8) ?? text
+
+            } catch {
+                AppLog.shared.log("Browser tool failed: \(error)", level: .error)
+                let payload = ToolResultPayload(
+                    ok: false,
+                    tool: "browser_read_tab",
+                    query: nil,
+                    result: nil,
+                    error: error.localizedDescription
+                )
+                if let data = try? JSONEncoder().encode(payload) {
+                    return String(data: data, encoding: .utf8) ?? payload.error ?? "Browser tool failed"
+                }
+                return "{\"ok\":false,\"tool\":\"browser_read_tab\",\"error\":\"Browser tool failed\"}"
+            }
+
         default:
             let payload = ToolResultPayload(
                 ok: false,
@@ -630,20 +846,86 @@ class ChatViewModel: ObservableObject {
         let baseDir = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? fileManager.temporaryDirectory
 
-        let profileDir = baseDir
+        let userDataRoot = baseDir
             .appendingPathComponent("BetterSiri", isDirectory: true)
-            .appendingPathComponent("BrowserAgentProfile", isDirectory: true)
+            .appendingPathComponent("BrowserAgentUserData", isDirectory: true)
 
         if browserAgentKeepSession {
-            try fileManager.createDirectory(at: profileDir, withIntermediateDirectories: true)
-            return profileDir
+            try fileManager.createDirectory(at: userDataRoot, withIntermediateDirectories: true)
+            return userDataRoot
         }
 
-        let sessionDir = profileDir
+        let sessionDir = userDataRoot
             .appendingPathComponent(chatSessionId.uuidString, isDirectory: true)
 
         try fileManager.createDirectory(at: sessionDir, withIntermediateDirectories: true)
         return sessionDir
+    }
+
+    private struct BrowserAgentLaunchConfig {
+        let userDataDir: URL
+        let keepSession: Bool
+        let chromeExecutablePath: String?
+        let profileDirectory: String?
+        let chromeArgs: [String]
+        let browserUseModel: String
+    }
+
+    private func resolveBrowserAgentLaunchConfig() throws -> BrowserAgentLaunchConfig {
+        let appId = ChromiumBrowserAppId(rawValue: browserAgentBrowserAppId) ?? .chrome
+
+        let profileRootMode = browserAgentProfileRootMode.trimmingCharacters(in: .whitespacesAndNewlines)
+        let userDataDir: URL = try {
+            switch profileRootMode {
+            case "custom":
+                let trimmed = browserAgentCustomUserDataDir.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed.isEmpty {
+                    throw NSError(
+                        domain: "BetterSiri",
+                        code: 1,
+                        userInfo: [NSLocalizedDescriptionKey: "Custom user-data-dir is empty"]
+                    )
+                }
+                return URL(fileURLWithPath: trimmed, isDirectory: true)
+
+            case "real":
+                return appId.defaultUserDataDirURL() ?? FileManager.default.temporaryDirectory
+            default:
+                // app_managed
+                return (try? ensureBrowserUserDataDirectory()) ?? FileManager.default.temporaryDirectory
+            }
+        }()
+
+        let keepSession: Bool = {
+            switch profileRootMode {
+            case "app_managed":
+                return browserAgentKeepSession
+            default:
+                // Real/custom profile roots must keep the same user-data-dir for persistence.
+                return true
+            }
+        }()
+
+        let executablePath = appId.resolveExecutablePath(customExecutablePath: browserAgentCustomExecutablePath)
+        let profileDir = browserAgentProfileDirectory.trimmingCharacters(in: .whitespacesAndNewlines)
+        let profileDirectory = profileDir.isEmpty ? "Default" : profileDir
+
+        var chromeArgs: [String] = []
+        if browserAgentAutoOpenDevTools {
+            chromeArgs.append("--auto-open-devtools-for-tabs")
+        }
+
+        let model = browserUseCloudModel.trimmingCharacters(in: .whitespacesAndNewlines)
+        let browserUseModel = model.isEmpty ? "bu-2-0" : model
+
+        return BrowserAgentLaunchConfig(
+            userDataDir: userDataDir,
+            keepSession: keepSession,
+            chromeExecutablePath: executablePath,
+            profileDirectory: profileDirectory,
+            chromeArgs: chromeArgs,
+            browserUseModel: browserUseModel
+        )
     }
 
     func pauseBrowser() {

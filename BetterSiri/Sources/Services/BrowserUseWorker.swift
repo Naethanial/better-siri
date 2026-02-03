@@ -90,6 +90,11 @@ enum JSONValue: Codable, Equatable, Sendable {
         if case .object(let value) = self { return value }
         return nil
     }
+
+    var arrayValue: [JSONValue]? {
+        if case .array(let value) = self { return value }
+        return nil
+    }
 }
 
 struct BrowserUseWorkerMessage: Decodable {
@@ -113,6 +118,18 @@ struct BrowserUseEvent: Sendable {
     let detail: String?
 }
 
+struct BrowserTab: Sendable, Hashable {
+    let index: Int
+    let title: String?
+    let url: String?
+}
+
+struct BrowserTabContext: Sendable {
+    let tabs: [BrowserTab]
+    let activeIndex: Int?
+    let activeTextExcerpt: String?
+}
+
 actor BrowserUseWorker {
     static let shared = BrowserUseWorker()
 
@@ -123,6 +140,9 @@ actor BrowserUseWorker {
     private var buffer = Data()
     private var startedBrowserUseApiKey: String?
     private var currentUserDataDir: String?
+    private var currentChromeExecutablePath: String?
+    private var currentProfileDirectory: String?
+    private var currentChromeArgs: [String] = []
 
     private struct PendingRequest {
         let id: String
@@ -282,6 +302,9 @@ actor BrowserUseWorker {
         stderrHandle = nil
         startedBrowserUseApiKey = nil
         currentUserDataDir = nil
+        currentChromeExecutablePath = nil
+        currentProfileDirectory = nil
+        currentChromeArgs = []
     }
 
     private func handleTermination(_ proc: Process) {
@@ -293,6 +316,9 @@ actor BrowserUseWorker {
         process = nil
         startedBrowserUseApiKey = nil
         currentUserDataDir = nil
+        currentChromeExecutablePath = nil
+        currentProfileDirectory = nil
+        currentChromeArgs = []
     }
 
     private func handleStdout(_ data: Data) {
@@ -377,18 +403,54 @@ actor BrowserUseWorker {
         browserUseApiKey: String?,
         userDataDir: URL,
         keepSession: Bool,
+        chromeExecutablePath: String? = nil,
+        profileDirectory: String? = nil,
+        chromeArgs: [String] = [],
         windowSize: CGSize = CGSize(width: 1200, height: 800)
     ) async throws {
         try startIfNeeded(browserUseApiKey: browserUseApiKey)
-        if !keepSession,
-           let currentUserDataDir,
-           currentUserDataDir != userDataDir.path {
+
+        let normalizedExecutablePath: String? = {
+            let trimmed = (chromeExecutablePath ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }()
+
+        let normalizedProfileDirectory: String? = {
+            let trimmed = (profileDirectory ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : trimmed
+        }()
+
+        let normalizedArgs = chromeArgs
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        let shouldRestartBrowser: Bool = {
+            if let currentUserDataDir, currentUserDataDir != userDataDir.path { return true }
+            if currentChromeExecutablePath != normalizedExecutablePath { return true }
+            if currentProfileDirectory != normalizedProfileDirectory { return true }
+            if currentChromeArgs != normalizedArgs { return true }
+            return false
+        }()
+
+        if shouldRestartBrowser, currentUserDataDir != nil {
+            // Close the existing browser so we can reopen with the new config.
+            // Keep the worker process alive for performance.
+            do {
+                try await closeBrowser()
+            } catch {
+                AppLog.shared.log("BrowserUseWorker: failed closing previous browser: \(error)", level: .error)
+            }
+        } else if !keepSession,
+                  let currentUserDataDir,
+                  currentUserDataDir != userDataDir.path {
+            // Session isolation requested (legacy behavior).
             do {
                 try await closeBrowser()
             } catch {
                 AppLog.shared.log("BrowserUseWorker: failed closing previous browser: \(error)", level: .error)
             }
         }
+
         _ = try await sendCommand(
             type: "open_browser",
             payload: [
@@ -398,15 +460,25 @@ actor BrowserUseWorker {
                     "width": .number(Double(windowSize.width)),
                     "height": .number(Double(windowSize.height)),
                 ]),
+                "chrome_executable_path": normalizedExecutablePath.map { .string($0) } ?? .null,
+                "profile_directory": normalizedProfileDirectory.map { .string($0) } ?? .null,
+                "chrome_args": .array(normalizedArgs.map { .string($0) }),
             ]
         )
         currentUserDataDir = userDataDir.path
+        currentChromeExecutablePath = normalizedExecutablePath
+        currentProfileDirectory = normalizedProfileDirectory
+        currentChromeArgs = normalizedArgs
     }
 
     func runTask(
         browserUseApiKey: String?,
         userDataDir: URL,
         keepSession: Bool,
+        chromeExecutablePath: String? = nil,
+        profileDirectory: String? = nil,
+        chromeArgs: [String] = [],
+        browserUseModel: String = "bu-2-0",
         task: String,
         maxSteps: Int? = 25,
         onEvent: (@Sendable (BrowserUseEvent) -> Void)? = nil
@@ -414,7 +486,10 @@ actor BrowserUseWorker {
         try await openBrowser(
             browserUseApiKey: browserUseApiKey,
             userDataDir: userDataDir,
-            keepSession: keepSession
+            keepSession: keepSession,
+            chromeExecutablePath: chromeExecutablePath,
+            profileDirectory: profileDirectory,
+            chromeArgs: chromeArgs
         )
 
         let response = try await sendCommand(
@@ -423,6 +498,7 @@ actor BrowserUseWorker {
                 "task": .string(task),
                 "max_steps": maxSteps.map { .number(Double($0)) } ?? .null,
                 "use_browser_use_llm": .bool(true),
+                "browser_use_model": .string(browserUseModel),
                 "headless": .bool(false),
                 "window_size": .object([
                     "width": .number(1200),
@@ -525,6 +601,67 @@ actor BrowserUseWorker {
         return response.payload?["output"]?.stringValue ?? ""
     }
 
+    func getTabContext(
+        browserUseApiKey: String?,
+        userDataDir: URL,
+        keepSession: Bool,
+        chromeExecutablePath: String? = nil,
+        profileDirectory: String? = nil,
+        chromeArgs: [String] = [],
+        includeActiveText: Bool,
+        maxChars: Int = 1800
+    ) async throws -> BrowserTabContext {
+        try await openBrowser(
+            browserUseApiKey: browserUseApiKey,
+            userDataDir: userDataDir,
+            keepSession: keepSession,
+            chromeExecutablePath: chromeExecutablePath,
+            profileDirectory: profileDirectory,
+            chromeArgs: chromeArgs
+        )
+
+        let response = try await sendCommand(
+            type: "get_tab_context",
+            payload: [
+                "include_active_text": .bool(includeActiveText),
+                "max_chars": .number(Double(maxChars)),
+            ]
+        )
+
+        guard response.type == "get_tab_context.ok",
+              let payload = response.payload else {
+            throw BrowserUseWorkerError.invalidWorkerResponse
+        }
+
+        let tabs: [BrowserTab] = (payload["tabs"]?.arrayValue ?? []).compactMap { value in
+            guard case .object(let obj) = value else { return nil }
+            let index = obj["index"]?.intValue ?? 0
+            let title = obj["title"]?.stringValue
+            let url = obj["url"]?.stringValue
+            return BrowserTab(index: index, title: title, url: url)
+        }
+
+        let activeIndex = payload["active_index"]?.intValue
+        let excerpt = payload["active_text_excerpt"]?.stringValue
+
+        return BrowserTabContext(tabs: tabs, activeIndex: activeIndex, activeTextExcerpt: excerpt)
+    }
+
+    func readTabText(index: Int, maxChars: Int = 4000) async throws -> String {
+        let response = try await sendCommand(
+            type: "read_tab_text",
+            payload: [
+                "index": .number(Double(index)),
+                "max_chars": .number(Double(maxChars)),
+            ]
+        )
+
+        guard response.type == "read_tab_text.ok" else {
+            throw BrowserUseWorkerError.invalidWorkerResponse
+        }
+        return response.payload?["text"]?.stringValue ?? ""
+    }
+
     func pause() async throws {
         _ = try await sendCommand(type: "pause", payload: [:])
     }
@@ -538,7 +675,12 @@ actor BrowserUseWorker {
     }
 
     func closeBrowser() async throws {
-        defer { currentUserDataDir = nil }
+        defer {
+            currentUserDataDir = nil
+            currentChromeExecutablePath = nil
+            currentProfileDirectory = nil
+            currentChromeArgs = []
+        }
         _ = try await sendCommand(type: "close_browser", payload: [:])
     }
 
