@@ -13,6 +13,12 @@ enum MarkdownInlineRun: Sendable, Equatable {
     case math(latex: String)
 }
 
+enum MarkdownTableAlignment: Sendable, Equatable {
+    case left
+    case center
+    case right
+}
+
 struct MarkdownBlock: Identifiable, Sendable, Equatable {
     enum Kind: Sendable, Equatable {
         case paragraph([MarkdownInlineRun])
@@ -21,6 +27,11 @@ struct MarkdownBlock: Identifiable, Sendable, Equatable {
         case unorderedList(items: [[MarkdownInlineRun]])
         case orderedList(items: [[MarkdownInlineRun]])
         case blockQuote(content: [MarkdownInlineRun])
+        case table(
+            header: [[MarkdownInlineRun]],
+            alignments: [MarkdownTableAlignment],
+            rows: [[[MarkdownInlineRun]]]
+        )
         case horizontalRule
         case mathBlock(latex: String)
     }
@@ -35,6 +46,12 @@ struct MarkdownBlock: Identifiable, Sendable, Equatable {
 }
 
 enum MarkdownParser {
+    private struct ParsedMathBlock {
+        let latex: String
+        let nextIndex: Int
+        let trailingText: String?
+    }
+
     static func parse(_ text: String) -> [MarkdownBlock] {
         let normalized = text.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
         let lines = normalized.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
@@ -107,41 +124,12 @@ enum MarkdownParser {
             if trimmed.hasPrefix("$$") {
                 flushParagraph(&paragraphBuffer)
 
-                let remainder = String(trimmed.dropFirst(2))
-                if remainder.contains("$$") {
-                    // One-liner: $$ ... $$
-                    let parts = remainder.split(separator: "$$", maxSplits: 1, omittingEmptySubsequences: false)
-                    let latex = String(parts.first ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                    blocks.append(.init(kind: .mathBlock(latex: latex)))
-                    i += 1
-                    continue
-                }
-
-                var mathLines: [String] = []
-                if !remainder.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    mathLines.append(remainder)
-                }
-
-                var j = i + 1
-                var foundClosing = false
-                while j < lines.count {
-                    let t = lines[j].trimmingCharacters(in: .whitespaces)
-                    if t.hasPrefix("$$") {
-                        let tail = String(t.dropFirst(2)).trimmingCharacters(in: .whitespacesAndNewlines)
-                        if !tail.isEmpty {
-                            mathLines.append(tail)
-                        }
-                        foundClosing = true
-                        break
+                if let parsed = parseMathBlock(lines: lines, start: i, openingDelimiter: "$$", closingDelimiter: "$$") {
+                    blocks.append(.init(kind: .mathBlock(latex: parsed.latex)))
+                    if let trailing = parsed.trailingText, !trailing.isEmpty {
+                        paragraphBuffer.append(trailing)
                     }
-                    mathLines.append(lines[j])
-                    j += 1
-                }
-
-                if foundClosing {
-                    let latex = mathLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-                    blocks.append(.init(kind: .mathBlock(latex: latex)))
-                    i = j + 1
+                    i = parsed.nextIndex
                     continue
                 }
 
@@ -155,43 +143,26 @@ enum MarkdownParser {
             if trimmed.hasPrefix("\\[") {
                 flushParagraph(&paragraphBuffer)
 
-                let remainder = String(trimmed.dropFirst(2))
-                if remainder.contains("\\]") {
-                    let parts = remainder.split(separator: "\\]", maxSplits: 1, omittingEmptySubsequences: false)
-                    let latex = String(parts.first ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                    blocks.append(.init(kind: .mathBlock(latex: latex)))
-                    i += 1
-                    continue
-                }
-
-                var mathLines: [String] = []
-                if !remainder.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    mathLines.append(remainder)
-                }
-
-                var j = i + 1
-                var foundClosing = false
-                while j < lines.count {
-                    if let range = lines[j].range(of: "\\]") {
-                        let before = String(lines[j][..<range.lowerBound])
-                        mathLines.append(before)
-                        foundClosing = true
-                        break
+                if let parsed = parseMathBlock(lines: lines, start: i, openingDelimiter: "\\[", closingDelimiter: "\\]") {
+                    blocks.append(.init(kind: .mathBlock(latex: parsed.latex)))
+                    if let trailing = parsed.trailingText, !trailing.isEmpty {
+                        paragraphBuffer.append(trailing)
                     }
-                    mathLines.append(lines[j])
-                    j += 1
-                }
-
-                if foundClosing {
-                    let latex = mathLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
-                    blocks.append(.init(kind: .mathBlock(latex: latex)))
-                    i = j + 1
+                    i = parsed.nextIndex
                     continue
                 }
 
                 // Streaming-safe: unfinished, treat as paragraph text.
                 paragraphBuffer.append(line)
                 i += 1
+                continue
+            }
+
+            // GFM tables
+            if let parsedTable = parseTableBlock(lines: lines, start: i) {
+                flushParagraph(&paragraphBuffer)
+                blocks.append(parsedTable.block)
+                i = parsedTable.nextIndex
                 continue
             }
 
@@ -297,6 +268,217 @@ enum MarkdownParser {
         return String(line[idx...])
     }
 
+    private static func parseMathBlock(
+        lines: [String],
+        start: Int,
+        openingDelimiter: String,
+        closingDelimiter: String
+    ) -> ParsedMathBlock? {
+        let openingLine = lines[start].trimmingCharacters(in: .whitespaces)
+        guard openingLine.hasPrefix(openingDelimiter) else { return nil }
+
+        let remainder = String(openingLine.dropFirst(openingDelimiter.count))
+        if let closeRange = remainder.range(of: closingDelimiter) {
+            let latex = String(remainder[..<closeRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let trailing = String(remainder[closeRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            return .init(latex: latex, nextIndex: start + 1, trailingText: trailing.isEmpty ? nil : trailing)
+        }
+
+        var mathLines: [String] = []
+        if !remainder.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            mathLines.append(remainder)
+        }
+
+        var j = start + 1
+        while j < lines.count {
+            let candidate = lines[j]
+            if let closeRange = candidate.range(of: closingDelimiter) {
+                let before = String(candidate[..<closeRange.lowerBound])
+                if !before.isEmpty {
+                    mathLines.append(before)
+                }
+
+                let latex = mathLines.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+                let trailing = String(candidate[closeRange.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+                return .init(latex: latex, nextIndex: j + 1, trailingText: trailing.isEmpty ? nil : trailing)
+            }
+
+            mathLines.append(candidate)
+            j += 1
+        }
+
+        return nil
+    }
+
+    private static func parseTableBlock(
+        lines: [String],
+        start: Int
+    ) -> (block: MarkdownBlock, nextIndex: Int)? {
+        guard start + 1 < lines.count else { return nil }
+
+        guard let headerCells = splitTableRow(lines[start]), !headerCells.isEmpty else { return nil }
+        guard let separatorCells = splitTableRow(lines[start + 1]) else { return nil }
+
+        let normalizedSeparator = normalizedTableCells(separatorCells, to: headerCells.count)
+        var alignments: [MarkdownTableAlignment] = []
+        alignments.reserveCapacity(normalizedSeparator.count)
+        for cell in normalizedSeparator {
+            guard let alignment = parseTableAlignment(cell) else { return nil }
+            alignments.append(alignment)
+        }
+
+        let normalizedHeader = normalizedTableCells(headerCells, to: alignments.count)
+        let headerRuns = normalizedHeader.map(parseInline)
+
+        var rows: [[[MarkdownInlineRun]]] = []
+        var j = start + 2
+        while j < lines.count {
+            let candidate = lines[j]
+            if candidate.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                break
+            }
+            guard let rowCells = splitTableRow(candidate) else { break }
+
+            let normalizedRow = normalizedTableCells(rowCells, to: alignments.count)
+            rows.append(normalizedRow.map(parseInline))
+            j += 1
+        }
+
+        let block = MarkdownBlock(
+            kind: .table(
+                header: headerRuns,
+                alignments: alignments,
+                rows: rows
+            )
+        )
+        return (block, j)
+    }
+
+    private static func splitTableRow(_ line: String) -> [String]? {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return nil }
+
+        var cells: [String] = []
+        var current = ""
+        var sawDelimiter = false
+
+        var idx = trimmed.startIndex
+        while idx < trimmed.endIndex {
+            let ch = trimmed[idx]
+            if ch == "|", !isEscaped(in: trimmed, at: idx) {
+                cells.append(current)
+                current = ""
+                sawDelimiter = true
+                idx = trimmed.index(after: idx)
+                continue
+            }
+
+            current.append(ch)
+            idx = trimmed.index(after: idx)
+        }
+        cells.append(current)
+
+        guard sawDelimiter else { return nil }
+
+        if trimmed.first == "|", !cells.isEmpty {
+            cells.removeFirst()
+        }
+        if trimmed.last == "|", !cells.isEmpty {
+            cells.removeLast()
+        }
+
+        return cells.map {
+            unescapeTableCell($0.trimmingCharacters(in: .whitespaces))
+        }
+    }
+
+    private static func normalizedTableCells(_ cells: [String], to expectedCount: Int) -> [String] {
+        guard expectedCount > 0 else { return [] }
+        if cells.count == expectedCount { return cells }
+
+        var out = Array(cells.prefix(expectedCount))
+        if out.count < expectedCount {
+            out.append(contentsOf: Array(repeating: "", count: expectedCount - out.count))
+        }
+        return out
+    }
+
+    private static func parseTableAlignment(_ cell: String) -> MarkdownTableAlignment? {
+        var token = cell.trimmingCharacters(in: .whitespaces)
+        guard !token.isEmpty else { return nil }
+
+        let leftAligned = token.hasPrefix(":")
+        let rightAligned = token.hasSuffix(":")
+
+        if leftAligned {
+            token.removeFirst()
+        }
+        if rightAligned, !token.isEmpty {
+            token.removeLast()
+        }
+
+        token = token.trimmingCharacters(in: .whitespaces)
+        guard token.count >= 3, token.allSatisfy({ $0 == "-" }) else { return nil }
+
+        switch (leftAligned, rightAligned) {
+        case (true, true): return .center
+        case (false, true): return .right
+        default: return .left
+        }
+    }
+
+    private static func unescapeTableCell(_ cell: String) -> String {
+        var out = ""
+        var idx = cell.startIndex
+
+        while idx < cell.endIndex {
+            let ch = cell[idx]
+            if ch == "\\" {
+                let next = cell.index(after: idx)
+                if next < cell.endIndex, cell[next] == "|" {
+                    out.append("|")
+                    idx = cell.index(after: next)
+                    continue
+                }
+            }
+
+            out.append(ch)
+            idx = cell.index(after: idx)
+        }
+
+        return out
+    }
+
+    private static func isEscaped(in string: String, at index: String.Index) -> Bool {
+        guard index > string.startIndex else { return false }
+
+        var slashCount = 0
+        var cursor = string.index(before: index)
+        while true {
+            guard string[cursor] == "\\" else { break }
+            slashCount += 1
+            guard cursor > string.startIndex else { break }
+            cursor = string.index(before: cursor)
+        }
+
+        return slashCount % 2 == 1
+    }
+
+    private static func firstUnescaped(
+        _ target: Character,
+        in string: String,
+        from start: String.Index
+    ) -> String.Index? {
+        var idx = start
+        while idx < string.endIndex {
+            if string[idx] == target, !isEscaped(in: string, at: idx) {
+                return idx
+            }
+            idx = string.index(after: idx)
+        }
+        return nil
+    }
+
     private static func parseInline(_ s: String) -> [MarkdownInlineRun] {
         var runs: [MarkdownInlineRun] = []
         var i = s.startIndex
@@ -352,17 +534,23 @@ enum MarkdownParser {
                         continue
                     }
                 }
+
+                if next < s.endIndex, "\\$|[]`*".contains(s[next]) {
+                    appendText(String(s[next]))
+                    i = s.index(after: next)
+                    continue
+                }
             }
 
             // Inline LaTeX: $...$ (streaming-safe)
-            if s[i] == "$" {
+            if s[i] == "$", !isEscaped(in: s, at: i) {
                 let next = s.index(after: i)
                 // avoid $$ here (block math handled elsewhere)
                 if next < s.endIndex, s[next] == "$" {
                     // treat as text
                 } else {
                     let start = next
-                    if let end = s[start...].firstIndex(of: "$"), end != start {
+                    if let end = firstUnescaped("$", in: s, from: start), end != start {
                         let latex = String(s[start..<end])
                         if !latex.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                             runs.append(.math(latex: latex))

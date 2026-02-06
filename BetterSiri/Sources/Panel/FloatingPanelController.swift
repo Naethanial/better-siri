@@ -53,7 +53,7 @@ class FloatingPanelController {
     var onClose: (() -> Void)?
 
     func show(at cursorPosition: CGPoint, on screen: NSScreen, viewModel: ChatViewModel) {
-        close()
+        close(notify: false)
 
         // Calculate initial position (bottom-left at cursor)
         let initialX = cursorPosition.x
@@ -134,10 +134,16 @@ class FloatingPanelController {
     }
 
     func close() {
+        close(notify: true)
+    }
+
+    func close(notify: Bool) {
         panel?.close()
         panel = nil
         hostingView = nil
-        onClose?()
+        if notify {
+            onClose?()
+        }
     }
 
     private func updateAnchorsAfterMove() {

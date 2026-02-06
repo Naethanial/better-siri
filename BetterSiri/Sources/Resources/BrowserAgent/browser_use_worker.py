@@ -399,247 +399,273 @@ async def _run_agent(
     max_steps: Optional[int],
     use_browser_use_llm: bool,
     browser_use_model: Optional[str],
+    openai_api_key: Optional[str],
+    openai_base_url: Optional[str],
+    openai_model: Optional[str],
     headless: bool,
     window_size: Optional[Dict[str, int]],
 ) -> None:
-    browser_use = await _maybe_import_browser_use()
+    try:
+        browser_use = await _maybe_import_browser_use()
 
-    Agent = getattr(browser_use, "Agent")
-    ChatBrowserUse = getattr(browser_use, "ChatBrowserUse")
-    ChatOpenAI = getattr(browser_use, "ChatOpenAI", None)
+        Agent = getattr(browser_use, "Agent")
+        ChatBrowserUse = getattr(browser_use, "ChatBrowserUse")
+        ChatOpenAI = getattr(browser_use, "ChatOpenAI", None)
 
-    browser = await _ensure_browser(
-        user_data_dir=STATE.browser_user_data_dir,
-        headless=headless,
-        window_size=window_size,
-    )
+        llm = None
+        if use_browser_use_llm:
+            if not os.environ.get("BROWSER_USE_API_KEY"):
+                raise RuntimeError(
+                    "Browser Use Cloud mode requires BROWSER_USE_API_KEY. Set the Browser Use API key in Settings or switch Browser agent LLM to OpenRouter."
+                )
 
-    llm = None
-    if use_browser_use_llm:
-        if browser_use_model:
-            try:
-                llm = ChatBrowserUse(model=browser_use_model)
-            except TypeError:
+            if browser_use_model:
+                try:
+                    llm = ChatBrowserUse(model=browser_use_model)
+                except TypeError:
+                    llm = ChatBrowserUse()
+            else:
                 llm = ChatBrowserUse()
         else:
-            llm = ChatBrowserUse()
-    else:
-        # Fallback if someone wants to run with OpenAI-compatible models.
-        if ChatOpenAI is None:
-            raise RuntimeError("ChatOpenAI not available in installed browser_use")
-        llm = ChatOpenAI(model="openai/gpt-4o-mini")
+            # OpenAI-compatible mode (OpenRouter base_url, etc.)
+            if ChatOpenAI is None:
+                raise RuntimeError("ChatOpenAI not available in installed browser_use")
 
-    step_index = 0
-    reported_model_outputs = 0
-    reported_action_results = 0
+            api_key = (openai_api_key or "").strip() or os.environ.get("OPENAI_API_KEY") or os.environ.get("OPENAI_KEY")
+            if not api_key:
+                raise RuntimeError(
+                    "Missing OpenRouter/OpenAI API key. Set your OpenRouter API key in Settings or switch Browser agent LLM to Browser Use Cloud."
+                )
 
-    async def on_step_start(agent: Any) -> None:
-        nonlocal step_index
-        step_index += 1
-        try:
-            state = await agent.browser_session.get_browser_state_summary()
-            _emit(
-                run_id,
-                {
-                    "event": "step_start",
-                    "step": step_index,
-                    "url": getattr(state, "url", None),
-                    "title": getattr(state, "title", None),
-                },
+            model = (openai_model or "").strip() or "openai/gpt-4o-mini"
+            base_url = (openai_base_url or "").strip() or None
+
+            headers = {"X-Title": "BetterSiri"}
+
+            llm = ChatOpenAI(
+                model=model,
+                api_key=api_key,
+                base_url=base_url,
+                default_headers=headers,
             )
-        except Exception:
-            _emit(run_id, {"event": "step_start", "step": step_index})
 
-    async def on_step_end(agent: Any) -> None:
-        nonlocal reported_model_outputs, reported_action_results
+        browser = await _ensure_browser(
+            user_data_dir=STATE.browser_user_data_dir,
+            headless=headless,
+            window_size=window_size,
+        )
 
-        # Model output (memory + planned actions)
-        try:
-            outputs = agent.history.model_outputs() if agent.history is not None else []
-            new_outputs = outputs[reported_model_outputs:]
-            for output in new_outputs:
-                dumped = output.model_dump(exclude_none=True)
+        step_index = 0
+        reported_model_outputs = 0
+        reported_action_results = 0
+
+        async def on_step_start(agent: Any) -> None:
+            nonlocal step_index
+            step_index += 1
+            try:
+                state = await agent.browser_session.get_browser_state_summary()
                 _emit(
                     run_id,
                     {
-                        "event": "model_output",
+                        "event": "step_start",
                         "step": step_index,
-                        "memory": dumped.get("memory"),
-                        "next_goal": dumped.get("next_goal"),
-                        "actions": dumped.get("action"),
+                        "url": getattr(state, "url", None),
+                        "title": getattr(state, "title", None),
                     },
                 )
-            reported_model_outputs = len(outputs)
-        except Exception:
-            pass
-
-        # Action results (what happened)
-        try:
-            results = agent.history.action_results() if agent.history is not None else []
-            new_results = results[reported_action_results:]
-            for res in new_results:
-                text = getattr(res, "extracted_content", None) or getattr(res, "long_term_memory", None) or ""
-                error = getattr(res, "error", None)
-                if error:
-                    _emit(
-                        run_id,
-                        {
-                            "event": "action_result",
-                            "step": step_index,
-                            "status": "error",
-                            "text": str(error),
-                        },
-                    )
-                elif text:
-                    _emit(
-                        run_id,
-                        {
-                            "event": "action_result",
-                            "step": step_index,
-                            "status": "ok",
-                            "text": str(text),
-                        },
-                    )
-            reported_action_results = len(results)
-        except Exception:
-            pass
-
-        # Screenshot (viewport) for UI preview
-        try:
-            from browser_use.browser.events import ScreenshotEvent  # type: ignore
-
-            screenshot_event = agent.browser_session.event_bus.dispatch(ScreenshotEvent(full_page=False))
-            await screenshot_event
-            screenshot_base64 = await screenshot_event.event_result(raise_if_any=True, raise_if_none=True)
-
-            screenshot_payload = _persist_screenshot(
-                run_id=run_id,
-                step=step_index,
-                screenshot_base64=screenshot_base64,
-            )
-            _emit(
-                run_id,
-                {
-                    "event": "screenshot",
-                    "step": step_index,
-                    **screenshot_payload,
-                },
-            )
-        except Exception:
-            pass
-
-        # Post-step state
-        try:
-            state = await agent.browser_session.get_browser_state_summary()
-            _emit(
-                run_id,
-                {
-                    "event": "step_end",
-                    "step": step_index,
-                    "url": getattr(state, "url", None),
-                    "title": getattr(state, "title", None),
-                },
-            )
-        except Exception:
-            _emit(run_id, {"event": "step_end", "step": step_index})
-
-    agent = Agent(
-        task=task,
-        browser=browser,
-        llm=llm,
-        # Encourage the model to use native browser actions for key presses.
-        extend_system_message=(
-            "When extracting facts from a page (titles, numbers, form values), verify by using tools like evaluate() or reading the DOM. "
-            "Do not rely solely on tab labels or URL hostnames as they may differ from the actual page title. "
-            "When interacting with inputs, do not type placeholders like {Enter} or {Tab} into fields. Use the send_keys action for special keys instead."
-        ),
-    )
-
-    # Some LLMs embed placeholders like `{Enter}` inside typed text. Convert those
-    # into real `send_keys` actions so browser automation behaves correctly.
-    orig_multi_act = agent.multi_act
-    ActionModel = agent.ActionModel
-
-    def _sanitize_actions(actions: list[Any]) -> list[Any]:
-        sanitized: list[Any] = []
-        for action in actions:
-            try:
-                dumped = action.model_dump(exclude_unset=True)
             except Exception:
-                sanitized.append(action)
-                continue
+                _emit(run_id, {"event": "step_start", "step": step_index})
 
-            input_payload = dumped.get("input")
-            if not isinstance(input_payload, dict):
-                sanitized.append(action)
-                continue
+        async def on_step_end(agent: Any) -> None:
+            nonlocal reported_model_outputs, reported_action_results
 
-            raw_text = input_payload.get("text")
-            if not isinstance(raw_text, str) or "{" not in raw_text or "}" not in raw_text:
-                sanitized.append(action)
-                continue
+            # Model output (memory + planned actions)
+            try:
+                outputs = agent.history.model_outputs() if agent.history is not None else []
+                new_outputs = outputs[reported_model_outputs:]
+                for output in new_outputs:
+                    dumped = output.model_dump(exclude_none=True)
+                    _emit(
+                        run_id,
+                        {
+                            "event": "model_output",
+                            "step": step_index,
+                            "memory": dumped.get("memory"),
+                            "next_goal": dumped.get("next_goal"),
+                            "actions": dumped.get("action"),
+                        },
+                    )
+                reported_model_outputs = len(outputs)
+            except Exception:
+                pass
 
-            matches = list(_SPECIAL_KEY_PATTERN.finditer(raw_text))
-            if not matches:
-                sanitized.append(action)
-                continue
+            # Action results (what happened)
+            try:
+                results = agent.history.action_results() if agent.history is not None else []
+                new_results = results[reported_action_results:]
+                for res in new_results:
+                    text = getattr(res, "extracted_content", None) or getattr(res, "long_term_memory", None) or ""
+                    error = getattr(res, "error", None)
+                    if error:
+                        _emit(
+                            run_id,
+                            {
+                                "event": "action_result",
+                                "step": step_index,
+                                "status": "error",
+                                "text": str(error),
+                            },
+                        )
+                    elif text:
+                        _emit(
+                            run_id,
+                            {
+                                "event": "action_result",
+                                "step": step_index,
+                                "status": "ok",
+                                "text": str(text),
+                            },
+                        )
+                reported_action_results = len(results)
+            except Exception:
+                pass
 
-            index = input_payload.get("index")
-            clear_value = input_payload.get("clear")
-            has_typed_anything = False
+            # Screenshot (viewport) for UI preview
+            try:
+                from browser_use.browser.events import ScreenshotEvent  # type: ignore
 
-            cursor = 0
-            for match in matches:
-                prefix = raw_text[cursor : match.start()]
-                if prefix:
-                    payload: Dict[str, Any] = {"index": index, "text": prefix}
-                    if not has_typed_anything and clear_value is not None:
-                        payload["clear"] = clear_value
-                    sanitized.append(ActionModel.model_validate({"input": payload}))
-                    has_typed_anything = True
+                screenshot_event = agent.browser_session.event_bus.dispatch(ScreenshotEvent(full_page=False))
+                await screenshot_event
+                screenshot_base64 = await screenshot_event.event_result(raise_if_any=True, raise_if_none=True)
 
-                token = match.group(1)
-                normalized = _normalize_send_keys_token(token)
-                if normalized is None:
-                    # Unknown token; keep it literal.
-                    literal = "{" + token + "}"
-                    if literal:
-                        payload = {"index": index, "text": literal}
+                screenshot_payload = _persist_screenshot(
+                    run_id=run_id,
+                    step=step_index,
+                    screenshot_base64=screenshot_base64,
+                )
+                _emit(
+                    run_id,
+                    {
+                        "event": "screenshot",
+                        "step": step_index,
+                        **screenshot_payload,
+                    },
+                )
+            except Exception:
+                pass
+
+            # Post-step state
+            try:
+                state = await agent.browser_session.get_browser_state_summary()
+                _emit(
+                    run_id,
+                    {
+                        "event": "step_end",
+                        "step": step_index,
+                        "url": getattr(state, "url", None),
+                        "title": getattr(state, "title", None),
+                    },
+                )
+            except Exception:
+                _emit(run_id, {"event": "step_end", "step": step_index})
+
+        agent = Agent(
+            task=task,
+            browser=browser,
+            llm=llm,
+            # Encourage the model to use native browser actions for key presses.
+            extend_system_message=(
+                "When extracting facts from a page (titles, numbers, form values), verify by using tools like evaluate() or reading the DOM. "
+                "Do not rely solely on tab labels or URL hostnames as they may differ from the actual page title. "
+                "When interacting with inputs, do not type placeholders like {Enter} or {Tab} into fields. Use the send_keys action for special keys instead."
+            ),
+        )
+
+        # Some LLMs embed placeholders like `{Enter}` inside typed text. Convert those
+        # into real `send_keys` actions so browser automation behaves correctly.
+        orig_multi_act = agent.multi_act
+        ActionModel = agent.ActionModel
+
+        def _sanitize_actions(actions: list[Any]) -> list[Any]:
+            sanitized: list[Any] = []
+            for action in actions:
+                try:
+                    dumped = action.model_dump(exclude_unset=True)
+                except Exception:
+                    sanitized.append(action)
+                    continue
+
+                input_payload = dumped.get("input")
+                if not isinstance(input_payload, dict):
+                    sanitized.append(action)
+                    continue
+
+                raw_text = input_payload.get("text")
+                if not isinstance(raw_text, str) or "{" not in raw_text or "}" not in raw_text:
+                    sanitized.append(action)
+                    continue
+
+                matches = list(_SPECIAL_KEY_PATTERN.finditer(raw_text))
+                if not matches:
+                    sanitized.append(action)
+                    continue
+
+                index = input_payload.get("index")
+                clear_value = input_payload.get("clear")
+                has_typed_anything = False
+
+                cursor = 0
+                for match in matches:
+                    prefix = raw_text[cursor : match.start()]
+                    if prefix:
+                        payload: Dict[str, Any] = {"index": index, "text": prefix}
                         if not has_typed_anything and clear_value is not None:
                             payload["clear"] = clear_value
                         sanitized.append(ActionModel.model_validate({"input": payload}))
                         has_typed_anything = True
-                else:
-                    # Ensure the element is focused before sending keys.
-                    if not has_typed_anything:
-                        focus_payload: Dict[str, Any] = {"index": index, "text": ""}
-                        if clear_value is not None:
-                            focus_payload["clear"] = clear_value
-                        sanitized.append(ActionModel.model_validate({"input": focus_payload}))
-                        has_typed_anything = True
 
-                    sanitized.append(ActionModel.model_validate({"send_keys": {"keys": normalized}}))
+                    token = match.group(1)
+                    normalized = _normalize_send_keys_token(token)
+                    if normalized is None:
+                        # Unknown token; keep it literal.
+                        literal = "{" + token + "}"
+                        if literal:
+                            payload = {"index": index, "text": literal}
+                            if not has_typed_anything and clear_value is not None:
+                                payload["clear"] = clear_value
+                            sanitized.append(ActionModel.model_validate({"input": payload}))
+                            has_typed_anything = True
+                    else:
+                        # Ensure the element is focused before sending keys.
+                        if not has_typed_anything:
+                            focus_payload: Dict[str, Any] = {"index": index, "text": ""}
+                            if clear_value is not None:
+                                focus_payload["clear"] = clear_value
+                            sanitized.append(ActionModel.model_validate({"input": focus_payload}))
+                            has_typed_anything = True
 
-                cursor = match.end()
+                        sanitized.append(ActionModel.model_validate({"send_keys": {"keys": normalized}}))
 
-            suffix = raw_text[cursor:]
-            if suffix:
-                payload = {"index": index, "text": suffix}
-                sanitized.append(ActionModel.model_validate({"input": payload}))
-            elif not has_typed_anything:
-                sanitized.append(action)
+                    cursor = match.end()
 
-        return sanitized
+                suffix = raw_text[cursor:]
+                if suffix:
+                    payload = {"index": index, "text": suffix}
+                    sanitized.append(ActionModel.model_validate({"input": payload}))
+                elif not has_typed_anything:
+                    sanitized.append(action)
 
-    async def multi_act(actions: list[Any]):
-        return await orig_multi_act(_sanitize_actions(actions))
+            return sanitized
 
-    agent.multi_act = multi_act  # type: ignore[assignment]
+        async def multi_act(actions: list[Any]):
+            return await orig_multi_act(_sanitize_actions(actions))
 
-    STATE.agent = agent
+        agent.multi_act = multi_act  # type: ignore[assignment]
 
-    _write({"id": run_id, "type": "run_task.event", "payload": {"event": "started"}})
-    try:
+        STATE.agent = agent
+
+        _write({"id": run_id, "type": "run_task.event", "payload": {"event": "started"}})
+
         kwargs: Dict[str, Any] = {
             "on_step_start": on_step_start,
             "on_step_end": on_step_end,
@@ -701,6 +727,24 @@ async def handle_run_task(cmd_id: str, payload: Dict[str, Any]) -> None:
         browser_use_model = None
     else:
         browser_use_model = browser_use_model.strip() or None
+
+    openai_api_key = payload.get("openai_api_key")
+    if not isinstance(openai_api_key, str):
+        openai_api_key = None
+    else:
+        openai_api_key = openai_api_key.strip() or None
+
+    openai_base_url = payload.get("openai_base_url")
+    if not isinstance(openai_base_url, str):
+        openai_base_url = None
+    else:
+        openai_base_url = openai_base_url.strip() or None
+
+    openai_model = payload.get("openai_model")
+    if not isinstance(openai_model, str):
+        openai_model = None
+    else:
+        openai_model = openai_model.strip() or None
     headless = bool(payload.get("headless", False))
     window_size = payload.get("window_size")
 
@@ -712,6 +756,9 @@ async def handle_run_task(cmd_id: str, payload: Dict[str, Any]) -> None:
             max_steps=max_steps,
             use_browser_use_llm=use_browser_use_llm,
             browser_use_model=browser_use_model,
+            openai_api_key=openai_api_key,
+            openai_base_url=openai_base_url,
+            openai_model=openai_model,
             headless=headless,
             window_size=window_size,
         )

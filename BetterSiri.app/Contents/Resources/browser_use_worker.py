@@ -8,7 +8,7 @@ import re
 import sys
 import tempfile
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Dict, Optional
 
@@ -38,6 +38,8 @@ class WorkerState:
     current_run_id: Optional[str] = None
     browser_user_data_dir: Optional[str] = None
     chrome_executable_path: Optional[str] = None
+    chrome_args: list[str] = field(default_factory=list)
+    profile_directory: Optional[str] = None
 
 
 STATE = WorkerState()
@@ -175,11 +177,92 @@ def _default_chrome_executable_path() -> Optional[str]:
         "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
         "/Applications/Google Chrome Beta.app/Contents/MacOS/Google Chrome Beta",
         "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+        "/Applications/Arc.app/Contents/MacOS/Arc",
+        "/Applications/Helium.app/Contents/MacOS/Helium",
     ]
     for path in candidates:
         if os.path.exists(path):
             return path
     return None
+
+
+def _normalize_chrome_args(args: Any) -> list[str]:
+    if not isinstance(args, list):
+        return []
+    out: list[str] = []
+    for item in args:
+        if isinstance(item, str):
+            s = item.strip()
+            if s:
+                out.append(s)
+    return out
+
+
+def _check_profile_lock(user_data_dir: Optional[str]) -> None:
+    if not user_data_dir:
+        return
+
+    lock_path = os.path.join(user_data_dir, "SingletonLock")
+    if not os.path.exists(lock_path):
+        return
+
+    try:
+        import fcntl  # type: ignore
+    except Exception:
+        # Best-effort; if we can't check locking, don't block.
+        return
+
+    try:
+        fd = os.open(lock_path, os.O_RDWR)
+    except Exception:
+        return
+
+    try:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as e:
+            raise RuntimeError(
+                "Selected browser profile is already in use. Close the other browser instance using this profile and try again."
+            ) from e
+        finally:
+            try:
+                fcntl.flock(fd, fcntl.LOCK_UN)
+            except Exception:
+                pass
+    finally:
+        try:
+            os.close(fd)
+        except Exception:
+            pass
+
+
+async def _safe_awaitable_call(target: Any, method_name: str) -> bool:
+    fn = getattr(target, method_name, None)
+    if fn is None:
+        return False
+    try:
+        res = fn()
+        if asyncio.iscoroutine(res):
+            await res
+        return True
+    except Exception:
+        return False
+
+
+async def _safe_stop_browser(browser: Any) -> None:
+    # browser_use has changed names across versions; be defensive.
+    for method in ("stop", "close", "shutdown", "terminate"):
+        if await _safe_awaitable_call(browser, method):
+            return
+
+
+async def _safe_kill_browser(browser: Any) -> None:
+    # Prefer a hard kill when the user explicitly asks to close the agent browser.
+    for method in ("kill", "stop", "close", "shutdown", "terminate"):
+        if await _safe_awaitable_call(browser, method):
+            return
 
 
 async def _ensure_browser(
@@ -196,7 +279,7 @@ async def _ensure_browser(
             return STATE.browser
         except Exception:
             try:
-                await STATE.browser.close()
+                await _safe_kill_browser(STATE.browser)
             except Exception:
                 pass
             STATE.browser = None
@@ -208,15 +291,30 @@ async def _ensure_browser(
 
     executable_path = STATE.chrome_executable_path or os.environ.get("BROWSER_USE_CHROME_PATH") or _default_chrome_executable_path()
 
+    _check_profile_lock(user_data_dir)
+
     # Keep one real window alive across tasks.
     # Use a dummy user_data_dir by default to avoid locking the user's real profile.
+    args = ["--disable-session-crashed-bubble"]
+    for a in STATE.chrome_args or []:
+        if a not in args:
+            args.append(a)
+
+    if STATE.profile_directory:
+        flag = f"--profile-directory={STATE.profile_directory}"
+        if flag not in args:
+            args.append(flag)
+
     browser_kwargs: Dict[str, Any] = {
+        "is_local": True,
         "headless": headless,
         "keep_alive": True,
         "user_data_dir": user_data_dir,
         "window_size": window_size,
-        # Avoid annoying restore prompt if the agent is stopped abruptly.
-        "args": ["--disable-session-crashed-bubble"],
+        "args": args,
+        # Force local browser usage; we want to control installed Chromium apps.
+        "use_cloud": False,
+        "cloud_browser": False,
     }
 
     # Prefer an explicit Chrome path if present, but allow browser_use to manage
@@ -225,7 +323,30 @@ async def _ensure_browser(
     if executable_path is not None:
         browser_kwargs["executable_path"] = executable_path
 
-    browser = Browser(**browser_kwargs)
+    try:
+        browser = Browser(**browser_kwargs)
+    except TypeError as e:
+        # browser_use has changed constructor kwargs across versions; gracefully
+        # fall back when optional args are unsupported.
+        msg = str(e)
+        reduced = dict(browser_kwargs)
+        for key in ("is_local", "use_cloud", "cloud_browser"):
+            if f"'{key}'" in msg:
+                reduced.pop(key, None)
+
+        try:
+            browser = Browser(**reduced)
+        except TypeError:
+            minimal = {
+                "headless": headless,
+                "keep_alive": True,
+                "user_data_dir": user_data_dir,
+                "window_size": window_size,
+                "args": args,
+            }
+            if executable_path is not None:
+                minimal["executable_path"] = executable_path
+            browser = Browser(**minimal)
 
     STATE.browser = browser
     STATE.browser_user_data_dir = user_data_dir
@@ -242,9 +363,19 @@ async def handle_open_browser(cmd_id: str, payload: Dict[str, Any]) -> None:
         headless = bool(payload.get("headless", False))
         window_size = payload.get("window_size")
         chrome_executable_path = payload.get("chrome_executable_path")
+        chrome_args = _normalize_chrome_args(payload.get("chrome_args"))
+        profile_directory = payload.get("profile_directory")
 
         if chrome_executable_path:
             STATE.chrome_executable_path = chrome_executable_path
+        if chrome_args:
+            STATE.chrome_args = chrome_args
+        else:
+            STATE.chrome_args = []
+        if profile_directory and isinstance(profile_directory, str) and profile_directory.strip():
+            STATE.profile_directory = profile_directory.strip()
+        else:
+            STATE.profile_directory = None
 
         await _ensure_browser(user_data_dir=user_data_dir, headless=headless, window_size=window_size)
         _write({"id": cmd_id, "type": "open_browser.ok", "payload": {"status": "ok"}})
@@ -267,6 +398,7 @@ async def _run_agent(
     task: str,
     max_steps: Optional[int],
     use_browser_use_llm: bool,
+    browser_use_model: Optional[str],
     headless: bool,
     window_size: Optional[Dict[str, int]],
 ) -> None:
@@ -284,7 +416,13 @@ async def _run_agent(
 
     llm = None
     if use_browser_use_llm:
-        llm = ChatBrowserUse()
+        if browser_use_model:
+            try:
+                llm = ChatBrowserUse(model=browser_use_model)
+            except TypeError:
+                llm = ChatBrowserUse()
+        else:
+            llm = ChatBrowserUse()
     else:
         # Fallback if someone wants to run with OpenAI-compatible models.
         if ChatOpenAI is None:
@@ -558,6 +696,11 @@ async def handle_run_task(cmd_id: str, payload: Dict[str, Any]) -> None:
             max_steps = None
 
     use_browser_use_llm = bool(payload.get("use_browser_use_llm", True))
+    browser_use_model = payload.get("browser_use_model")
+    if not isinstance(browser_use_model, str):
+        browser_use_model = None
+    else:
+        browser_use_model = browser_use_model.strip() or None
     headless = bool(payload.get("headless", False))
     window_size = payload.get("window_size")
 
@@ -568,10 +711,173 @@ async def handle_run_task(cmd_id: str, payload: Dict[str, Any]) -> None:
             task=task,
             max_steps=max_steps,
             use_browser_use_llm=use_browser_use_llm,
+            browser_use_model=browser_use_model,
             headless=headless,
             window_size=window_size,
         )
     )
+
+async def _extract_page_text(page: Any, max_chars: int) -> str:
+    try:
+        text = await page.evaluate("() => document.body ? (document.body.innerText || '') : ''")
+        if isinstance(text, str):
+            return text[:max_chars]
+    except Exception:
+        pass
+
+    try:
+        html = await page.content()
+        if isinstance(html, str):
+            # Very rough fallback; better than nothing if evaluate() fails.
+            cleaned = re.sub(r"<[^>]+>", " ", html)
+            cleaned = re.sub(r"\\s+", " ", cleaned).strip()
+            return cleaned[:max_chars]
+    except Exception:
+        pass
+
+    return ""
+
+
+async def handle_get_tab_context(cmd_id: str, payload: Dict[str, Any]) -> None:
+    try:
+        include_active_text = bool(payload.get("include_active_text", True))
+        max_chars = payload.get("max_chars")
+        try:
+            max_chars = int(max_chars) if max_chars is not None else 1800
+        except Exception:
+            max_chars = 1800
+        max_chars = max(200, min(max_chars, 8000))
+
+        browser = await _ensure_browser(
+            user_data_dir=STATE.browser_user_data_dir,
+            headless=False,
+            window_size=None,
+        )
+
+        state = await browser.get_browser_state_summary()
+
+        tabs: list[dict[str, Any]] = []
+        for idx, tab in enumerate(getattr(state, "tabs", []) or []):
+            tabs.append(
+                {
+                    "index": idx,
+                    "title": getattr(tab, "title", None),
+                    "url": getattr(tab, "url", None),
+                    "target_id": getattr(tab, "target_id", None),
+                }
+            )
+
+        # Derive active tab index from focused targetId when possible.
+        active_index = None
+        try:
+            info = await browser.get_current_target_info()
+            target_id = info.get("targetId") if isinstance(info, dict) else None
+            if target_id:
+                for t in tabs:
+                    if t.get("target_id") == target_id:
+                        active_index = t.get("index")
+                        break
+        except Exception:
+            active_index = None
+
+        if active_index is None and tabs:
+            active_index = 0
+
+        active_text_excerpt = None
+        if include_active_text:
+            try:
+                page = await browser.get_current_page()
+                if page is not None:
+                    active_text_excerpt = await _extract_page_text(page, max_chars=max_chars)
+            except Exception:
+                active_text_excerpt = None
+
+        _write(
+            {
+                "id": cmd_id,
+                "type": "get_tab_context.ok",
+                "payload": {
+                    "tabs": tabs,
+                    "active_index": active_index,
+                    "active_text_excerpt": active_text_excerpt,
+                },
+            }
+        )
+    except Exception:
+        _write(
+            {
+                "id": cmd_id,
+                "type": "get_tab_context.error",
+                "payload": {"message": "Failed to get tab context", "traceback": traceback.format_exc()},
+            }
+        )
+
+
+async def handle_read_tab_text(cmd_id: str, payload: Dict[str, Any]) -> None:
+    try:
+        index = payload.get("index")
+        try:
+            index = int(index)
+        except Exception:
+            index = -1
+
+        max_chars = payload.get("max_chars")
+        try:
+            max_chars = int(max_chars) if max_chars is not None else 4000
+        except Exception:
+            max_chars = 4000
+        max_chars = max(200, min(max_chars, 16000))
+
+        browser = await _ensure_browser(
+            user_data_dir=STATE.browser_user_data_dir,
+            headless=False,
+            window_size=None,
+        )
+
+        state = await browser.get_browser_state_summary()
+        tabs = getattr(state, "tabs", []) or []
+
+        if index < 0 or index >= len(tabs):
+            _write(
+                {
+                    "id": cmd_id,
+                    "type": "read_tab_text.error",
+                    "payload": {"message": f"Invalid tab index: {index}"},
+                }
+            )
+            return
+
+        # Switch focus to the requested tab (read-only; no navigation/click).
+        try:
+            from browser_use.browser.events import SwitchTabEvent  # type: ignore
+
+            target_id = getattr(tabs[index], "target_id", None)
+            if target_id:
+                await browser.event_bus.dispatch(SwitchTabEvent(target_id=target_id))
+        except Exception:
+            pass
+
+        page = await browser.get_current_page()
+        if page is None:
+            _write(
+                {
+                    "id": cmd_id,
+                    "type": "read_tab_text.error",
+                    "payload": {"message": "No active tab"},
+                }
+            )
+            return
+
+        text = await _extract_page_text(page, max_chars=max_chars)
+        _write({"id": cmd_id, "type": "read_tab_text.ok", "payload": {"index": index, "text": text}})
+    except Exception:
+        _write(
+            {
+                "id": cmd_id,
+                "type": "read_tab_text.error",
+                "payload": {"message": "Failed to read tab text", "traceback": traceback.format_exc()},
+            }
+        )
 
 
 async def handle_pause(cmd_id: str, payload: Dict[str, Any]) -> None:
@@ -607,7 +913,7 @@ async def handle_close_browser(cmd_id: str, payload: Dict[str, Any]) -> None:
             STATE.run_task.cancel()
 
         if STATE.browser is not None:
-            await STATE.browser.close()
+            await _safe_kill_browser(STATE.browser)
         STATE.browser = None
         STATE.browser_user_data_dir = None
         _write({"id": cmd_id, "type": "close_browser.ok", "payload": {"status": "ok"}})
@@ -675,6 +981,8 @@ async def handle_close_all_windows(cmd_id: str, payload: Dict[str, Any]) -> None
 HANDLERS: Dict[str, Callable[[str, Dict[str, Any]], Awaitable[None]]] = {
     "open_browser": handle_open_browser,
     "run_task": handle_run_task,
+    "get_tab_context": handle_get_tab_context,
+    "read_tab_text": handle_read_tab_text,
     "pause": handle_pause,
     "resume": handle_resume,
     "stop": handle_stop,

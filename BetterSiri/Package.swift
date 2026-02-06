@@ -25,6 +25,11 @@ let package = Package(
                 .process("Resources/BrowserAgent"),
                 .process("Resources/KaTeX")
             ]
+        ),
+        .testTarget(
+            name: "BetterSiriTests",
+            dependencies: ["BetterSiri"],
+            path: "Tests/BetterSiriTests"
         )
     ]
 )

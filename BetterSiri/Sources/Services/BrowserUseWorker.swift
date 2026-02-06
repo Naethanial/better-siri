@@ -139,6 +139,13 @@ actor BrowserUseWorker {
     private var stderrHandle: FileHandle?
     private var buffer = Data()
     private var startedBrowserUseApiKey: String?
+    private var startedPythonCommand: String?
+    private var isReady: Bool = false
+    private struct ReadyWaiter {
+        let id: UUID
+        let continuation: CheckedContinuation<Void, Error>
+    }
+    private var readyWaiters: [ReadyWaiter] = []
     private var currentUserDataDir: String?
     private var currentChromeExecutablePath: String?
     private var currentProfileDirectory: String?
@@ -154,6 +161,46 @@ actor BrowserUseWorker {
 
     var isRunning: Bool {
         process?.isRunning == true
+    }
+
+    private func resolvePythonCommand(scriptURL: URL) -> (executableURL: URL, arguments: [String], signature: String) {
+        let configuredPython = (UserDefaults.standard.string(forKey: "browser_agent_pythonPath") ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let envPython = (ProcessInfo.processInfo.environment["BETTERSIRI_BROWSER_AGENT_PYTHON"] ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if !configuredPython.isEmpty {
+            let signature = "python:\(configuredPython)"
+            return (URL(fileURLWithPath: configuredPython), ["-u", scriptURL.path], signature)
+        }
+
+        if !envPython.isEmpty {
+            let signature = "python:\(envPython)"
+            return (URL(fileURLWithPath: envPython), ["-u", scriptURL.path], signature)
+        }
+
+        // Local dev convenience: prefer a repo-local venv if present.
+        let fileManager = FileManager.default
+        let cwd = URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
+        let bundleParent = Bundle.main.bundleURL.deletingLastPathComponent()
+
+        let candidates: [URL] = [
+            cwd.appendingPathComponent(".browser-agent-venv/bin/python"),
+            cwd.appendingPathComponent("../.browser-agent-venv/bin/python"),
+            cwd.appendingPathComponent("../../.browser-agent-venv/bin/python"),
+            bundleParent.appendingPathComponent(".browser-agent-venv/bin/python"),
+        ]
+
+        for candidate in candidates {
+            if fileManager.fileExists(atPath: candidate.path) {
+                let signature = "python:\(candidate.path)"
+                return (candidate, ["-u", scriptURL.path], signature)
+            }
+        }
+
+        // Default: PATH python3.
+        let signature = "env:python3"
+        return (URL(fileURLWithPath: "/usr/bin/env"), ["python3", "-u", scriptURL.path], signature)
     }
 
     private func resolveWorkerScriptURL() throws -> URL {
@@ -211,44 +258,34 @@ actor BrowserUseWorker {
         throw BrowserUseWorkerError.resourceMissing("browser_use_worker.py")
     }
 
-    func startIfNeeded(browserUseApiKey: String?) throws {
+    func startIfNeeded(browserUseApiKey: String?) async throws {
+        let scriptURL = try resolveWorkerScriptURL()
+        let python = resolvePythonCommand(scriptURL: scriptURL)
+
         if isRunning {
-            // If the user added/changed the API key after startup, restart the worker
-            // so the env var is updated.
-            if let browserUseApiKey, !browserUseApiKey.isEmpty, startedBrowserUseApiKey != browserUseApiKey {
+            // Restart if critical config changed.
+            if startedBrowserUseApiKey != browserUseApiKey || startedPythonCommand != python.signature {
                 stopProcess()
             } else {
                 return
             }
         }
 
-        let scriptURL = try resolveWorkerScriptURL()
-
         let process = Process()
 
-        let configuredPython = (UserDefaults.standard.string(forKey: "browser_agent_pythonPath") ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let envPython = (ProcessInfo.processInfo.environment["BETTERSIRI_BROWSER_AGENT_PYTHON"] ?? "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if !configuredPython.isEmpty {
-            process.executableURL = URL(fileURLWithPath: configuredPython)
-            process.arguments = ["-u", scriptURL.path]
-        } else if !envPython.isEmpty {
-            process.executableURL = URL(fileURLWithPath: envPython)
-            process.arguments = ["-u", scriptURL.path]
-        } else {
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-            process.arguments = ["python3", "-u", scriptURL.path]
-        }
+        process.executableURL = python.executableURL
+        process.arguments = python.arguments
 
         var env = ProcessInfo.processInfo.environment
         if let browserUseApiKey, !browserUseApiKey.isEmpty {
             env["BROWSER_USE_API_KEY"] = browserUseApiKey
+        } else {
+            env.removeValue(forKey: "BROWSER_USE_API_KEY")
         }
         process.environment = env
 
         startedBrowserUseApiKey = browserUseApiKey
+        startedPythonCommand = python.signature
 
         let stdinPipe = Pipe()
         let stdoutPipe = Pipe()
@@ -261,6 +298,7 @@ actor BrowserUseWorker {
         try process.run()
 
         self.process = process
+        isReady = false
         stdinHandle = stdinPipe.fileHandleForWriting
         stdoutHandle = stdoutPipe.fileHandleForReading
         stderrHandle = stderrPipe.fileHandleForReading
@@ -287,6 +325,9 @@ actor BrowserUseWorker {
                 await self?.handleTermination(proc)
             }
         }
+
+        AppLog.shared.log("BrowserUseWorker started (\(python.signature))")
+        try await waitForReady(timeoutSeconds: 3.0)
     }
 
     func stopProcess() {
@@ -301,10 +342,17 @@ actor BrowserUseWorker {
         stdoutHandle = nil
         stderrHandle = nil
         startedBrowserUseApiKey = nil
+        startedPythonCommand = nil
         currentUserDataDir = nil
         currentChromeExecutablePath = nil
         currentProfileDirectory = nil
         currentChromeArgs = []
+        isReady = false
+
+        for waiter in readyWaiters {
+            waiter.continuation.resume(throwing: BrowserUseWorkerError.processNotRunning)
+        }
+        readyWaiters.removeAll()
     }
 
     private func handleTermination(_ proc: Process) {
@@ -315,10 +363,17 @@ actor BrowserUseWorker {
         pending.removeAll()
         process = nil
         startedBrowserUseApiKey = nil
+        startedPythonCommand = nil
         currentUserDataDir = nil
         currentChromeExecutablePath = nil
         currentProfileDirectory = nil
         currentChromeArgs = []
+        isReady = false
+
+        for waiter in readyWaiters {
+            waiter.continuation.resume(throwing: BrowserUseWorkerError.processNotRunning)
+        }
+        readyWaiters.removeAll()
     }
 
     private func handleStdout(_ data: Data) {
@@ -343,6 +398,11 @@ actor BrowserUseWorker {
     private func route(_ msg: BrowserUseWorkerMessage) {
         if msg.type == "ready" {
             AppLog.shared.log("BrowserUseWorker ready")
+            isReady = true
+            for waiter in readyWaiters {
+                waiter.continuation.resume()
+            }
+            readyWaiters.removeAll()
             return
         }
 
@@ -377,6 +437,8 @@ actor BrowserUseWorker {
         guard isRunning else { throw BrowserUseWorkerError.processNotRunning }
         guard let stdinHandle else { throw BrowserUseWorkerError.processNotRunning }
 
+        try await waitForReady(timeoutSeconds: 3.0)
+
         let id = UUID().uuidString
         let cmd: [String: Any] = [
             "id": id,
@@ -399,6 +461,30 @@ actor BrowserUseWorker {
         }
     }
 
+    private func waitForReady(timeoutSeconds: Double) async throws {
+        if isReady { return }
+        guard isRunning else { throw BrowserUseWorkerError.processNotRunning }
+
+        let waiterId = UUID()
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            readyWaiters.append(ReadyWaiter(id: waiterId, continuation: continuation))
+            Task { [weak self] in
+                let nanos = UInt64(max(0.2, timeoutSeconds) * 1_000_000_000.0)
+                try? await Task.sleep(nanoseconds: nanos)
+                await self?.failReadyWaiterIfNeeded(id: waiterId)
+            }
+        }
+    }
+
+    private func failReadyWaiterIfNeeded(id: UUID) {
+        guard !isReady else { return }
+        guard let index = readyWaiters.firstIndex(where: { $0.id == id }) else { return }
+        let waiter = readyWaiters.remove(at: index)
+        waiter.continuation.resume(
+            throwing: BrowserUseWorkerError.commandFailed("Browser worker failed to start. Check Settings → Browser agent Python.")
+        )
+    }
+
     func openBrowser(
         browserUseApiKey: String?,
         userDataDir: URL,
@@ -408,7 +494,9 @@ actor BrowserUseWorker {
         chromeArgs: [String] = [],
         windowSize: CGSize = CGSize(width: 1200, height: 800)
     ) async throws {
-        try startIfNeeded(browserUseApiKey: browserUseApiKey)
+        // Only configure the Browser Use key when it is actually set.
+        let trimmedKey = (browserUseApiKey ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        try await startIfNeeded(browserUseApiKey: trimmedKey.isEmpty ? nil : trimmedKey)
 
         let normalizedExecutablePath: String? = {
             let trimmed = (chromeExecutablePath ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -479,6 +567,10 @@ actor BrowserUseWorker {
         profileDirectory: String? = nil,
         chromeArgs: [String] = [],
         browserUseModel: String = "bu-2-0",
+        useBrowserUseLlm: Bool,
+        openAiApiKey: String?,
+        openAiBaseUrl: String?,
+        openAiModel: String?,
         task: String,
         maxSteps: Int? = 25,
         onEvent: (@Sendable (BrowserUseEvent) -> Void)? = nil
@@ -497,8 +589,11 @@ actor BrowserUseWorker {
             payload: [
                 "task": .string(task),
                 "max_steps": maxSteps.map { .number(Double($0)) } ?? .null,
-                "use_browser_use_llm": .bool(true),
+                "use_browser_use_llm": .bool(useBrowserUseLlm),
                 "browser_use_model": .string(browserUseModel),
+                "openai_api_key": openAiApiKey.map { .string($0) } ?? .null,
+                "openai_base_url": openAiBaseUrl.map { .string($0) } ?? .null,
+                "openai_model": openAiModel.map { .string($0) } ?? .null,
                 "headless": .bool(false),
                 "window_size": .object([
                     "width": .number(1200),

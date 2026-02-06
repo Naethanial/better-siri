@@ -51,6 +51,7 @@ class ChatViewModel: ObservableObject {
     @AppStorage("openrouter_apiKey") private var apiKey: String = ""
     @AppStorage("perplexity_apiKey") private var perplexityApiKey: String = ""
     @AppStorage("browser_use_apiKey") private var browserUseApiKey: String = ""
+    @AppStorage("browser_agent_llmMode") private var browserAgentLlmMode: String = "auto"
     @AppStorage("browser_agent_keepSession") private var browserAgentKeepSession: Bool = true
     @AppStorage("browser_agent_browserAppId") private var browserAgentBrowserAppId: String = ChromiumBrowserAppId.chrome.rawValue
     @AppStorage("browser_agent_customExecutablePath") private var browserAgentCustomExecutablePath: String = ""
@@ -139,14 +140,43 @@ class ChatViewModel: ObservableObject {
                         updateTrace(.openingBrowser, status: .active)
                         let cfg = try resolveBrowserAgentLaunchConfig()
                         updateTrace(.browsing, status: .active, detail: "Starting")
+
+                        let llmMode = browserAgentLlmMode.trimmingCharacters(in: .whitespacesAndNewlines)
+                        let shouldUseCloudLlm: Bool = {
+                            switch llmMode {
+                            case "browser_use_cloud":
+                                return true
+                            case "openrouter":
+                                return false
+                            default:
+                                return !browserUseApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                            }
+                        }()
+
+                        if shouldUseCloudLlm,
+                           browserUseApiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                            throw NSError(
+                                domain: "BetterSiri",
+                                code: 1,
+                                userInfo: [
+                                    NSLocalizedDescriptionKey:
+                                        "Browser Use Cloud mode requires a Browser Use API key. Set it in Settings or switch Browser agent LLM to OpenRouter/Auto."
+                                ]
+                            )
+                        }
+
                         browserContext = try await BrowserUseWorker.shared.runTask(
-                            browserUseApiKey: browserUseApiKey,
+                            browserUseApiKey: shouldUseCloudLlm ? browserUseApiKey : nil,
                             userDataDir: cfg.userDataDir,
                             keepSession: cfg.keepSession,
                             chromeExecutablePath: cfg.chromeExecutablePath,
                             profileDirectory: cfg.profileDirectory,
                             chromeArgs: cfg.chromeArgs,
                             browserUseModel: cfg.browserUseModel,
+                            useBrowserUseLlm: shouldUseCloudLlm,
+                            openAiApiKey: shouldUseCloudLlm ? nil : apiKey,
+                            openAiBaseUrl: shouldUseCloudLlm ? nil : "https://openrouter.ai/api/v1",
+                            openAiModel: shouldUseCloudLlm ? nil : "openai/gpt-4o-mini",
                             task: trimmedInput,
                             onEvent: { [weak self] event in
                                 Task { @MainActor in

@@ -248,6 +248,127 @@ private struct CodeBlockView: View {
     }
 }
 
+private struct TableBlockView: View {
+    let header: [[MarkdownInlineRun]]
+    let alignments: [MarkdownTableAlignment]
+    let rows: [[[MarkdownInlineRun]]]
+    let colorScheme: ColorScheme
+    let foregroundColor: Color
+    let latexColor: NSColor
+
+    private var columnCount: Int {
+        max(alignments.count, header.count, rows.map(\.count).max() ?? 0)
+    }
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: true) {
+            Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
+                if columnCount > 0 {
+                    GridRow {
+                        ForEach(0..<columnCount, id: \.self) { columnIndex in
+                            tableCell(
+                                runs: runsForHeader(columnIndex),
+                                alignment: alignmentForColumn(columnIndex),
+                                isHeader: true
+                            )
+                            .gridColumnAlignment(gridColumnAlignment(for: alignmentForColumn(columnIndex)))
+                        }
+                    }
+
+                    tableDivider
+
+                    ForEach(Array(rows.enumerated()), id: \.offset) { rowIndex, row in
+                        GridRow {
+                            ForEach(0..<columnCount, id: \.self) { columnIndex in
+                                tableCell(
+                                    runs: runsForRow(row, columnIndex),
+                                    alignment: alignmentForColumn(columnIndex),
+                                    isHeader: false
+                                )
+                            }
+                        }
+
+                        if rowIndex < rows.count - 1 {
+                            tableDivider
+                        }
+                    }
+                }
+            }
+            .padding(1)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(.black.opacity(colorScheme == .dark ? 0.24 : 0.05))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                        .strokeBorder(.white.opacity(colorScheme == .dark ? 0.10 : 0.08), lineWidth: 0.5)
+                )
+        )
+    }
+
+    private var tableDivider: some View {
+        Rectangle()
+            .fill(.white.opacity(colorScheme == .dark ? 0.10 : 0.08))
+            .frame(height: 1)
+            .gridCellColumns(columnCount)
+    }
+
+    @ViewBuilder
+    private func tableCell(
+        runs: [MarkdownInlineRun],
+        alignment: MarkdownTableAlignment,
+        isHeader: Bool
+    ) -> some View {
+        InlineRunsView(
+            runs: runs,
+            foregroundColor: foregroundColor,
+            latexColor: latexColor,
+            latexFontSize: 14,
+            baseFont: .system(size: 14, weight: isHeader ? .semibold : .regular),
+            colorScheme: colorScheme
+        )
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .frame(minWidth: 90, alignment: frameAlignment(for: alignment))
+        .background(
+            isHeader
+                ? .white.opacity(colorScheme == .dark ? 0.07 : 0.04)
+                : .clear
+        )
+    }
+
+    private func alignmentForColumn(_ index: Int) -> MarkdownTableAlignment {
+        guard alignments.indices.contains(index) else { return .left }
+        return alignments[index]
+    }
+
+    private func runsForHeader(_ index: Int) -> [MarkdownInlineRun] {
+        guard header.indices.contains(index) else { return [] }
+        return header[index]
+    }
+
+    private func runsForRow(_ row: [[MarkdownInlineRun]], _ index: Int) -> [MarkdownInlineRun] {
+        guard row.indices.contains(index) else { return [] }
+        return row[index]
+    }
+
+    private func frameAlignment(for alignment: MarkdownTableAlignment) -> Alignment {
+        switch alignment {
+        case .left: return .leading
+        case .center: return .center
+        case .right: return .trailing
+        }
+    }
+
+    private func gridColumnAlignment(for alignment: MarkdownTableAlignment) -> HorizontalAlignment {
+        switch alignment {
+        case .left: return .leading
+        case .center: return .center
+        case .right: return .trailing
+        }
+    }
+}
+
 struct MarkdownMathView: View {
     let text: String
     let foregroundColor: Color
@@ -384,6 +505,16 @@ struct MarkdownMathView: View {
                 )
             }
             .padding(.vertical, 4)
+
+        case .table(let header, let alignments, let rows):
+            TableBlockView(
+                header: header,
+                alignments: alignments,
+                rows: rows,
+                colorScheme: colorScheme,
+                foregroundColor: foregroundColor,
+                latexColor: latexColor
+            )
 
         case .horizontalRule:
             Rectangle()

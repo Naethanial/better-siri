@@ -7,6 +7,7 @@ struct SettingsView: View {
     @AppStorage("openrouter_apiKey") private var apiKey: String = ""
     @AppStorage("browser_use_apiKey") private var browserUseApiKey: String = ""
     @AppStorage("browser_agent_pythonPath") private var browserAgentPythonPath: String = ""
+    @AppStorage("browser_agent_llmMode") private var browserAgentLlmMode: String = "auto"
     @AppStorage("browser_agent_keepSession") private var browserAgentKeepSession: Bool = true
     @AppStorage("browser_agent_browserAppId") private var browserAgentBrowserAppId: String = ChromiumBrowserAppId.chrome.rawValue
     @AppStorage("browser_agent_customExecutablePath") private var browserAgentCustomExecutablePath: String = ""
@@ -102,6 +103,26 @@ struct SettingsView: View {
                 TextField("Browser agent Python", text: $browserAgentPythonPath)
                     .textFieldStyle(.roundedBorder)
 
+                Picker("Browser agent LLM", selection: $browserAgentLlmMode) {
+                    Text("Auto").tag("auto")
+                    Text("Browser Use Cloud").tag("browser_use_cloud")
+                    Text("OpenRouter").tag("openrouter")
+                }
+
+                if browserAgentLlmMode == "browser_use_cloud" {
+                    Text("Uses your Browser Use API key and the selected bu-* model.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else if browserAgentLlmMode == "openrouter" {
+                    Text("Uses your OpenRouter API key for browser automation. Browser Use API key is optional in this mode.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("Auto uses Browser Use Cloud if a Browser Use API key is set; otherwise it uses OpenRouter.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
                 Picker("Browser app", selection: $browserAgentBrowserAppId) {
                     ForEach(ChromiumBrowserAppId.allCases) { app in
                         Text(app.displayName).tag(app.rawValue)
@@ -158,6 +179,7 @@ struct SettingsView: View {
                     Text("bu-latest").tag("bu-latest")
                     Text("bu-1-0").tag("bu-1-0")
                 }
+                .disabled(browserAgentLlmMode == "openrouter")
 
                 Toggle("Keep browser session alive", isOn: $browserAgentKeepSession)
                     .disabled(browserAgentProfileRootMode != "app_managed")

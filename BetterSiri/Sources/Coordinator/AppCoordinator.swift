@@ -24,23 +24,26 @@ class AppCoordinator: ObservableObject {
         // Set up panel close callback
         panelController.onClose = { [weak self] in
             guard let self else { return }
-
-            // Stop any in-flight browser automation immediately, but keep the
-            // browser window/session alive for faster subsequent runs.
-            Task {
-                try? await BrowserUseWorker.shared.stop()
-            }
-
-            self.chatViewModel?.cancelStreaming()
-            self.persistActiveChatIfNeeded()
-            self.chatBindings.removeAll()
-
-            self.isPanelOpen = false
-            self.chatViewModel = nil
-            self.activeChatSessionId = nil
-            AppLog.shared.log("Panel closed")
+            self.handlePanelClosed()
         }
         AppLog.shared.log("App coordinator initialized")
+    }
+
+    private func handlePanelClosed() {
+        // Stop any in-flight browser automation immediately, but keep the
+        // browser window/session alive for faster subsequent runs.
+        Task {
+            try? await BrowserUseWorker.shared.stop()
+        }
+
+        chatViewModel?.cancelStreaming()
+        persistActiveChatIfNeeded()
+        chatBindings.removeAll()
+
+        isPanelOpen = false
+        chatViewModel = nil
+        activeChatSessionId = nil
+        AppLog.shared.log("Panel closed")
     }
 
     func togglePanel() {
